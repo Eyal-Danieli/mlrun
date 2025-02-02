@@ -20,7 +20,8 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
-import mlrun.common.schemas.model_monitoring.grafana
+import mlrun.common.schemas
+import mlrun.common.schemas.model_monitoring.grafana as grafana_schemas
 
 import services.api.crud.model_monitoring.grafana
 import services.api.crud.model_monitoring.helpers
@@ -80,14 +81,13 @@ async def grafana_proxy_model_endpoints_search(
     if not mlrun.mlconf.is_ce_mode():
         services.api.crud.model_monitoring.helpers.get_access_key(auth_info)
     body = await request.json()
-    print("[EYAL]: now in grafana search query, body:", body)
+
     query_parameters = (
         services.api.crud.model_monitoring.grafana.parse_search_parameters(body)
     )
     services.api.crud.model_monitoring.grafana.validate_query_parameters(
         query_parameters, SUPPORTED_SEARCH_FUNCTIONS
     )
-    print("[EYAL]: now in grafana search query, query parameters:", query_parameters)
 
     # At this point everything is validated and we can access everything that is needed without performing all previous
     # checks again.
@@ -103,8 +103,8 @@ async def grafana_proxy_model_endpoints_search(
     "/query",
     response_model=list[
         Union[
-            mlrun.common.schemas.model_monitoring.grafana.GrafanaTable,
-            mlrun.common.schemas.model_monitoring.grafana.GrafanaTimeSeriesTarget,
+            grafana_schemas.GrafanaTable,
+            grafana_schemas.GrafanaTimeSeriesTarget,
         ]
     ],
 )
@@ -114,9 +114,8 @@ async def grafana_proxy_model_endpoints_query(
     db_session: Session = Depends(deps.get_db_session),
 ) -> list[
     Union[
-        mlrun.common.schemas.model_monitoring.grafana.GrafanaTable,
-        mlrun.common.schemas.model_monitoring.grafana.GrafanaTimeSeriesTarget,
-        list[mlrun.common.schemas.model_monitoring.ModelEndpoint],
+        grafana_schemas.GrafanaTable,
+        grafana_schemas.GrafanaTimeSeriesTarget,
     ]
 ]:
     """
@@ -125,13 +124,18 @@ async def grafana_proxy_model_endpoints_query(
 
     This implementation requires passing target_endpoint query parameter in order to dispatch different
     model-endpoint monitoring functions.
+
+    :param request:    An api request with the required target and parameters.
+    :param auth_info:  The auth info of the request.
+    :param db_session: A session that manages the current dialog with the database.
+
+    :return: Either a `GrafanaTable` or a `GrafanaTimeSeriesTarget` object, depending on the query.
     """
-    print("[EYAL]: now in grafana query query")
+
     body = await request.json()
     query_parameters = (
         services.api.crud.model_monitoring.grafana.parse_query_parameters(body)
     )
-    print("[EYAL]: now in grafana query query, query parameters:", query_parameters)
     services.api.crud.model_monitoring.grafana.validate_query_parameters(
         query_parameters, SUPPORTED_QUERY_FUNCTIONS
     )
@@ -145,7 +149,7 @@ async def grafana_proxy_model_endpoints_query(
     # checks again.
     target_endpoint = query_parameters["target_endpoint"]
     function = NAME_TO_QUERY_FUNCTION_DICTIONARY[target_endpoint]
-    # db_session = mlrun.get_run_db()
+
     if asyncio.iscoroutinefunction(function):
         return await function(body, query_parameters, auth_info, db_session)
     return await run_in_threadpool(
