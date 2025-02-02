@@ -171,7 +171,7 @@ async def grafana_list_endpoints(
         uids=uids,
         tsdb_metrics=True,
     )
-    print('[EYAL]: endpoint_list:', endpoint_list)
+
     table = grafana_schemas.GrafanaModelEndpointsTable()
     for endpoint in endpoint_list.endpoints:
         if (
