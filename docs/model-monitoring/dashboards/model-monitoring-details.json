@@ -627,11 +627,7 @@
   "templating": {
     "list": [
       {
-        "current": {
-          "selected": false,
-          "text": "v3io-v2",
-          "value": "v3io-v2"
-        },
+        "current": {},
         "datasource": "model-monitoring",
         "definition": "target_endpoint=list_projects",
         "hide": 0,
