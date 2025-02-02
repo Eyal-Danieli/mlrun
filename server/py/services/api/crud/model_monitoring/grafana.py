@@ -86,6 +86,8 @@ async def grafana_list_endpoints_uids(
         project=project,
     )
 
+    print("[EYAL]: endpoint_list: ", endpoint_list)
+
     return [model_endpoint.metadata.uid for model_endpoint in endpoint_list.endpoints]
 
 
@@ -170,17 +172,6 @@ async def grafana_list_endpoints(
         uids=uids,
         tsdb_metrics=True,
     )
-
-    allowed_endpoints = await framework.utils.auth.verifier.AuthVerifier().filter_project_resources_by_permissions(
-        mlrun.common.schemas.AuthorizationResourceTypes.model_endpoint,
-        endpoint_list.endpoints,
-        lambda _endpoint: (
-            _endpoint.metadata.project,
-            _endpoint.metadata.uid,
-        ),
-        auth_info,
-    )
-    endpoint_list.endpoints = allowed_endpoints
 
     table = grafana_schemas.GrafanaModelEndpointsTable()
     for endpoint in endpoint_list.endpoints:
