@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
+from sqlalchemy.util import asyncio
 
 import mlrun.common.formatters
 import mlrun.common.schemas
@@ -85,8 +86,6 @@ async def grafana_list_endpoints_uids(
         db_session=db_session,
         project=project,
     )
-
-    print("[EYAL]: endpoint_list: ", endpoint_list)
 
     return [model_endpoint.metadata.uid for model_endpoint in endpoint_list.endpoints]
 
@@ -172,7 +171,7 @@ async def grafana_list_endpoints(
         uids=uids,
         tsdb_metrics=True,
     )
-
+    print('[EYAL]: endpoint_list:', endpoint_list)
     table = grafana_schemas.GrafanaModelEndpointsTable()
     for endpoint in endpoint_list.endpoints:
         if (
