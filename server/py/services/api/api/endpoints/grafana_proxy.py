@@ -151,6 +151,7 @@ async def grafana_proxy_model_endpoints_query(
     function = NAME_TO_QUERY_FUNCTION_DICTIONARY[target_endpoint]
 
     if asyncio.iscoroutinefunction(function):
-        return await function(body, query_parameters, auth_info, db_session)
-    result = await run_in_threadpool(function, body, query_parameters, auth_info, db_session)
+        result = await function(body, query_parameters, auth_info, db_session)
+    else:
+        result = await run_in_threadpool(function, body, query_parameters, auth_info, db_session)
     return result
