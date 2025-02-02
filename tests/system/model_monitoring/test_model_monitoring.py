@@ -51,8 +51,6 @@ from tests.system.base import TestMLRunSystem
 
 from . import get_tsdb_datastore_profile_from_env
 
-_MLRUN_MODEL_MONITORING_DB = "mysql+pymysql://root@mlrun-db:3306/mlrun_model_monitoring"
-
 
 def mock_random_endpoint(
     project_name: str,
@@ -1156,7 +1154,7 @@ class TestModelMonitoringKafka(TestMLRunSystem):
         assert function_config["spec.triggers.kafka"]
         assert (
             function_config["spec.triggers.kafka"]["attributes"]["topics"][0]
-            == f"monitoring_stream_{self.project_name}"
+            == f"monitoring_stream_{mlrun.mlconf.system_id}_{self.project_name}"
         )
         assert (
             function_config["spec.triggers.kafka"]["attributes"]["brokers"][0]
@@ -1168,7 +1166,9 @@ class TestModelMonitoringKafka(TestMLRunSystem):
         # Validate that the topic exist as expected
         consumer = kafka.KafkaConsumer(bootstrap_servers=[self.brokers])
         topics = consumer.topics()
-        assert f"monitoring_stream_{self.project_name}" in topics
+        assert (
+            f"monitoring_stream_{mlrun.mlconf.system_id}_{self.project_name}" in topics
+        )
 
         # Simulating Requests
         iris_data = iris["data"].tolist()
@@ -1259,12 +1259,15 @@ class TestInferenceWithSpecialChars(TestMLRunSystem):
         feature_set = self._get_monitoring_feature_set()
         features = feature_set.spec.features
         feature_names = [feat.name for feat in features]
-        assert feature_names == [
+        feature_names.sort()
+        columns_feature_names = [
             mlrun.feature_store.api.norm_column_name(feat)
             for feat in self.columns
             + [self.y_name]
             + mm_constants.FeatureSetFeatures.list()
         ]
+        columns_feature_names.sort()
+        assert feature_names == columns_feature_names
 
         df = pd.read_parquet(
             f"v3io:///projects/{self.project.name}/artifacts/model-endpoints/parquet"

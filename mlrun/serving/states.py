@@ -595,10 +595,6 @@ class TaskStep(BaseStep):
                 creation_strategy=self.model_endpoint_creation_strategy,
                 endpoint_type=self.endpoint_type,
             )
-            if hasattr(self._object, "model_endpoint_uid"):
-                self.endpoint_uid = self._object.model_endpoint_uid
-            if hasattr(self._object, "name"):
-                self.endpoint_name = self._object.name
 
     def respond(self):
         """mark this step as the responder.
@@ -759,9 +755,11 @@ class RouterStep(TaskStep):
         self._routes: ObjectDict = None
         self.routes = routes
         self.endpoint_type = schemas.EndpointType.ROUTER
+        if isinstance(class_name, type):
+            class_name = class_name.__name__
         self.model_endpoint_creation_strategy = (
             schemas.ModelEndpointCreationStrategy.INPLACE
-            if class_name and "serving.VotingEnsemble" in class_name
+            if class_name and "VotingEnsemble" in class_name
             else schemas.ModelEndpointCreationStrategy.SKIP
         )
 

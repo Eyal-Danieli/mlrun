@@ -1254,7 +1254,13 @@ class MlrunProject(ModelObj):
         mlrun.utils.helpers.validate_builder_source(source, pull_at_runtime, workdir)
 
         self.spec.load_source_on_run = pull_at_runtime
+
+        source_has_changed = source != self.spec.source
         self.spec.source = source or self.spec.source
+
+        # new source should not relay on old workdir
+        if source_has_changed:
+            self.spec.workdir = workdir
 
         if self.spec.source.startswith("git://"):
             source, reference, branch = resolve_git_reference_from_source(source)
@@ -1264,7 +1270,6 @@ class MlrunProject(ModelObj):
                     "'git://<url>/org/repo.git#<branch-name or refs/heads/..>'"
                 )
 
-        self.spec.workdir = workdir or self.spec.workdir
         try:
             # reset function objects (to recalculate build attributes)
             self.sync_functions()
@@ -1949,7 +1954,8 @@ class MlrunProject(ModelObj):
                     kwargs={"extract_images": True}
                 )
         :param upload: Whether to upload the artifact
-        :param labels: Key-value labels
+        :param labels:  Key-value labels. A 'source' label is automatically added using either
+                        local_path or target_path to facilitate easier document searching.
         :param target_path: Target file path
         :param kwargs: Additional keyword arguments
         :return: DocumentArtifact object
@@ -1979,13 +1985,24 @@ class MlrunProject(ModelObj):
                 "The document loader is configured to not support downloads but the upload flag is set to True."
                 "Either set loader.download_object=True or set upload=False"
             )
+        original_source = local_path or target_path
         doc_artifact = DocumentArtifact(
             key=key,
-            original_source=local_path or target_path,
+            original_source=original_source,
             document_loader_spec=document_loader_spec,
             collections=kwargs.pop("collections", None),
             **kwargs,
         )
+
+        # limit label to a max of 255 characters (for db reasons)
+        max_length = 255
+        labels = labels or {}
+        labels["source"] = (
+            original_source[: max_length - 3] + "..."
+            if len(original_source) > max_length
+            else original_source
+        )
+
         return self.log_artifact(
             item=doc_artifact,
             tag=tag,
@@ -2205,6 +2222,12 @@ class MlrunProject(ModelObj):
                     reset_policy=reset_policy,
                 )
             )
+        if not alerts:
+            warnings.warn(
+                "No alert config has been created. "
+                "Try specifying a result name explicitly or verifying that results are available"
+            )
+
         return alerts
 
     def set_model_monitoring_function(
@@ -2407,7 +2430,6 @@ class MlrunProject(ModelObj):
         *,
         deploy_histogram_data_drift_app: bool = True,
         wait_for_deployment: bool = False,
-        rebuild_images: bool = False,
         fetch_credentials_from_sys_config: bool = False,
     ) -> None:
         """
@@ -2429,7 +2451,6 @@ class MlrunProject(ModelObj):
         :param wait_for_deployment:               If true, return only after the deployment is done on the backend.
                                                   Otherwise, deploy the model monitoring infrastructure on the
                                                   background, including the histogram data drift app if selected.
-        :param rebuild_images:                    If true, force rebuild of model monitoring infrastructure images.
         :param fetch_credentials_from_sys_config: If true, fetch the credentials from the system configuration.
         """
         if default_controller_image != "mlrun/mlrun":
@@ -2452,7 +2473,6 @@ class MlrunProject(ModelObj):
             image=image,
             base_period=base_period,
             deploy_histogram_data_drift_app=deploy_histogram_data_drift_app,
-            rebuild_images=rebuild_images,
             fetch_credentials_from_sys_config=fetch_credentials_from_sys_config,
         )
 
@@ -2854,14 +2874,15 @@ class MlrunProject(ModelObj):
         """
         self.spec.remove_function(name)
 
-    def delete_function(self, name, from_cache_only=True):
+    def delete_function(self, name, delete_from_db=False):
         """deletes the specified function from the project
 
-        :param name:    name of the function (under the project)
-        :param from_cache_only: if set, do not delete the function from the DB.
-            Function will be deleted from project's cache and spec only. Default is True.
+        :param name: name of the function (under the project)
+        :param delete_from_db: default is False. If False, the function is removed
+                               only from the project's cache and spec.
+                               If True, the function is also removed from the database.
         """
-        if not from_cache_only:
+        if delete_from_db:
             mlrun.db.get_run_db().delete_function(name=name, project=self.metadata.name)
         self.spec.remove_function(name)
 
@@ -3446,12 +3467,13 @@ class MlrunProject(ModelObj):
 
         arguments = arguments or {}
         need_repo = self.spec._need_repo()
-        if self.spec.repo and self.spec.repo.is_dirty():
-            msg = "You seem to have uncommitted git changes, use .push()"
-            if dirty or not need_repo:
-                logger.warning("WARNING!, " + msg)
-            else:
-                raise ProjectError(msg + " or dirty=True")
+        if not dirty:
+            if self.spec.repo and self.spec.repo.is_dirty():
+                msg = "You seem to have uncommitted git changes, use .push()"
+                if not need_repo:
+                    logger.warning("WARNING!, " + msg)
+                else:
+                    raise ProjectError(msg + " or dirty=True")
 
         if need_repo and self.spec.repo and not self.spec.source:
             raise ProjectError(
@@ -3781,8 +3803,8 @@ class MlrunProject(ModelObj):
                 "Please keep in mind that if you already had model monitoring functions "
                 "/ model monitoring infra / tracked model server "
                 "deployed on your project, you will need to redeploy them. "
-                "For redeploying the model monitoring infra, please use `enable_model_monitoring` API "
-                "and set `rebuild_images=True`"
+                "For redeploying the model monitoring infra, first disable it using "
+                "`project.disable_model_monitoring()` and then enable it using `project.enable_model_monitoring()`."
             )
 
     def list_model_endpoints(
@@ -3798,6 +3820,7 @@ class MlrunProject(ModelObj):
         top_level: bool = False,
         uids: Optional[list[str]] = None,
         latest_only: bool = False,
+        tsdb_metrics: bool = True,
     ) -> mlrun.common.schemas.ModelEndpointList:
         """
         Returns a list of `ModelEndpoint` objects. Each `ModelEndpoint` object represents the current state of a
@@ -3848,6 +3871,7 @@ class MlrunProject(ModelObj):
             top_level=top_level,
             uids=uids,
             latest_only=latest_only,
+            tsdb_metrics=tsdb_metrics,
         )
 
     def run_function(
@@ -4108,7 +4132,7 @@ class MlrunProject(ModelObj):
 
         :param image: target image name/path. If not specified the project's existing `default_image` name will be
                         used. If not set, the `mlconf.default_project_image_name` value will be used
-        :param set_as_default: set `image` to be the project's default image (default False)
+        :param set_as_default: set `image` to be the project's default image (default True)
         :param with_mlrun:      add the current mlrun package to the container build
         :param base_image:      base image name/path (commands and source code will be added to it) defaults to
                                 mlrun.mlconf.default_base_image
