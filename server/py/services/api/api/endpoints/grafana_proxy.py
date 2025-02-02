@@ -30,12 +30,15 @@ router = APIRouter(prefix="/grafana-proxy/model-endpoints")
 
 NAME_TO_SEARCH_FUNCTION_DICTIONARY = {
     "list_projects": services.api.crud.model_monitoring.grafana.grafana_list_projects,
+    "list_endpoints": services.api.crud.model_monitoring.grafana.grafana_list_endpoints_uids,
+    "list_metrics": services.api.crud.model_monitoring.grafana.grafana_list_metrics,
 }
 NAME_TO_QUERY_FUNCTION_DICTIONARY = {
     "list_endpoints": services.api.crud.model_monitoring.grafana.grafana_list_endpoints,
     "individual_feature_analysis": services.api.crud.model_monitoring.grafana.grafana_individual_feature_analysis,
     "overall_feature_analysis": services.api.crud.model_monitoring.grafana.grafana_overall_feature_analysis,
     "incoming_features": services.api.crud.model_monitoring.grafana.grafana_incoming_features,
+    "get_model_endpoint": services.api.crud.model_monitoring.grafana.grafana_get_model_endpoint,
 }
 
 SUPPORTED_QUERY_FUNCTIONS = set(NAME_TO_QUERY_FUNCTION_DICTIONARY.keys())
@@ -93,10 +96,10 @@ async def grafana_proxy_model_endpoints_search(
     function = NAME_TO_SEARCH_FUNCTION_DICTIONARY[target_endpoint]
 
     if asyncio.iscoroutinefunction(function):
-        result = await function(db_session, auth_info, query_parameters)
+        result = await function(query_parameters, auth_info, db_session)
     else:
         result = await run_in_threadpool(
-            function, db_session, auth_info, query_parameters
+            function, query_parameters, auth_info, db_session
         )
     return result
 
@@ -119,7 +122,7 @@ async def grafana_proxy_model_endpoints_query(
     Union[
         mlrun.common.schemas.model_monitoring.grafana.GrafanaTable,
         mlrun.common.schemas.model_monitoring.grafana.GrafanaTimeSeriesTarget,
-        mlrun.common.schemas.model_monitoring.ModelEndpointList,
+        list[mlrun.common.schemas.model_monitoring.ModelEndpoint],
     ]
 ]:
     """
@@ -150,6 +153,8 @@ async def grafana_proxy_model_endpoints_query(
     function = NAME_TO_QUERY_FUNCTION_DICTIONARY[target_endpoint]
     # db_session = mlrun.get_run_db()
     if asyncio.iscoroutinefunction(function):
-        return await function(body, query_parameters, auth_info, db_session)
-    result = await run_in_threadpool(function, body, query_parameters, auth_info, db_session)
+        result = await function(body, query_parameters, auth_info, db_session)
+    else:
+        result = await run_in_threadpool(function, body, query_parameters, auth_info, db_session)
+    print("[EYAL]: result of the function:", result)
     return result
