@@ -205,11 +205,12 @@ async def grafana_list_endpoints(
 
     return [table]
 
-
+# This function was not removed due to backward compatibility that is related to iguazio version <= 3.5.2
 async def grafana_individual_feature_analysis(
     body: dict[str, Any],
     query_parameters: dict[str, str],
     auth_info: mlrun.common.schemas.AuthInfo,
+    db_session: Session,
 ):
     endpoint_id = query_parameters.get("endpoint_id")
     project = query_parameters.get("project")
@@ -269,11 +270,12 @@ async def grafana_individual_feature_analysis(
 
     return [table]
 
-
+# This function was not removed due to backward compatibility that is related to iguazio version <= 3.5.2
 async def grafana_overall_feature_analysis(
     body: dict[str, Any],
     query_parameters: dict[str, str],
     auth_info: mlrun.common.schemas.AuthInfo,
+    db_session: Session,
 ):
     endpoint_id = query_parameters.get("endpoint_id")
     project = query_parameters.get("project")
@@ -316,11 +318,12 @@ async def grafana_overall_feature_analysis(
 
     return [table]
 
-
+# This function was not removed due to backward compatibility that is related to iguazio version <= 3.5.2
 async def grafana_incoming_features(
     body: dict[str, Any],
     query_parameters: dict[str, str],
     auth_info: mlrun.common.schemas.AuthInfo,
+    db_session: Session,
 ):
     endpoint_id = query_parameters.get("endpoint_id")
     project = query_parameters.get("project")
