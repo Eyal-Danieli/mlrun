@@ -259,6 +259,40 @@ class TDEngineConnector(TSDBConnector):
             flush_after_seconds=tsdb_batching_timeout_secs,
         )
 
+    def delete_tsdb_records(self, endpoint_id: str):
+        logger.debug(
+            "Deleting model endpoint resources using the TDEngine connector",
+            project=self.project,
+            endpoint_id=endpoint_id,
+        )
+        drop_statements = []
+        delete_condition = {"endpoint_id": endpoint_id}
+        for table in self.tables:
+            drop_statements.append(
+                self.tables[table].delete_from_supertable_query(values=delete_condition)
+            )
+
+        try:
+            self.connection.run(
+                statements=drop_statements,
+                timeout=self._timeout,
+                retries=self._retries,
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to delete model endpoint resources. You may need to delete them manually. "
+                "These can be found under the following supertables: app_results, "
+                "metrics, errors, and predictions.",
+                project=self.project,
+                endpoint_id=endpoint_id,
+                error=mlrun.errors.err_to_str(e),
+            )
+        logger.debug(
+            "Deleted all model endpoint resources using the TDEngine connector",
+            project=self.project,
+            endpoint_id=endpoint_id,
+        )
+
     def delete_tsdb_resources(self):
         """
         Delete all project resources in the TSDB connector, such as model endpoints data and drift results.
@@ -281,7 +315,7 @@ class TDEngineConnector(TSDBConnector):
             logger.warning(
                 "Failed to drop TDEngine tables. You may need to drop them manually. "
                 "These can be found under the following supertables: app_results, "
-                "metrics, and predictions.",
+                "metrics, errors, and predictions.",
                 project=self.project,
                 error=mlrun.errors.err_to_str(e),
             )

@@ -7535,6 +7535,12 @@ class SQLDB(DBInterface):
             main_table_identifier_values=uids,
         )
 
+        # logger.debug("Removing model endpoints feature sets from db", project=project)
+        # self._delete_multi_objects(
+        #     session=session,
+        #     main_table=FeatureSet,
+        #     related_tables=[FeatureSet.Tag, FeatureSet.Label],
+
     def get_system_id(self, session: Session) -> typing.Optional[str]:
         system_id_record = (
             self._query(session, SystemMetadata)

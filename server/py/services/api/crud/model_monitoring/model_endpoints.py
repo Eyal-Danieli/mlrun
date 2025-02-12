@@ -252,6 +252,7 @@ class ModelEndpoints:
                 model_endpoints_dict.get(method)[model_endpoint.metadata.uid] = (
                     attributes
                 )
+            # EYAL - here add feature set id to delete
             model_endpoints_dict.get("delete").extend(uid_to_delete)
 
         if model_endpoints_dict.get("create"):
@@ -791,7 +792,7 @@ class ModelEndpoints:
         """
         Delete the monitoring infrastructure of a given model endpoint based on endpoint id.
 
-        :param uids:          The unique id of the model endpoint.
+        :param uids:          List of the model endpoints uids.
         :param project:       The name of the project.
         """
 
@@ -801,16 +802,18 @@ class ModelEndpoints:
             ModelMonitoringDriftMeasuresFile(project=project, endpoint_id=uid).delete()
             ModelMonitoringSchedulesFile(project=project, endpoint_id=uid).delete()
 
-        # delete tsdb records - NOT IMPLEMENTED
+        # delete tsdb records
         try:
-            # todo : delete tsdb records/tables for the model endpoint
-            # tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
-            #     project=project,
-            #     secret_provider=services.api.crud.secrets.get_project_secret_provider(
-            #         project=project
-            #     ),
-            # )
-            logger.info("TSDB resources were not deleted")
+            tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+                project=project,
+                secret_provider=services.api.crud.secrets.get_project_secret_provider(
+                    project=project
+                ),
+            )
+            for uid in uids:
+                # todo: optimize to delete all in one call
+                tsdb_connector.delete_tsdb_records(endpoint_id=uid)
+            logger.info("TSDB resources were deleted")
         except mlrun.errors.MLRunInvalidMMStoreTypeError as e:
             logger.info(
                 "Failed to delete TSDB resources, you may need to delete them manually",

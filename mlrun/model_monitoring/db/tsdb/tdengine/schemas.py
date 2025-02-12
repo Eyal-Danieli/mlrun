@@ -122,6 +122,19 @@ class TDEngineSchema:
             )
         return f"DELETE FROM {self.database}.{subtable} WHERE {values};"
 
+    def delete_from_supertable_query(
+        self,
+        values: dict[str, Union[str, int, float, datetime.datetime]],
+    ) -> str:
+        values = " AND ".join(
+            f"{val} LIKE '{values[val]}'" for val in self.tags if val in values
+        )
+        if not values:
+            raise mlrun.errors.MLRunInvalidArgumentError(
+                f"values must contain at least one tag: {self.tags.keys()}"
+            )
+        return f"DELETE FROM {self.database}.{self.super_table} WHERE {values};"
+
     def _drop_subtable_query(
         self,
         subtable: str,
