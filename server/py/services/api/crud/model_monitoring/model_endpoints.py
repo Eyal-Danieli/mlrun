@@ -271,18 +271,29 @@ class ModelEndpoints:
             )
 
         if model_endpoints_dict.get("delete"):
+            uids = model_endpoints_dict.get("delete")
             # delete old versions
             await run_in_threadpool(
                 framework.utils.singletons.db.get_db().delete_model_endpoints,
                 session=db_session,
                 project=project,
-                uids=model_endpoints_dict.get("delete"),
+                uids=uids,
             )
             await run_in_threadpool(
                 self._delete_model_endpoint_monitoring_infra,
-                uids=model_endpoints_dict.get("delete"),
+                uids=uids,
                 project=project,
             )
+            # delete old feature sets
+            print("[EYAL]: going to delete feature sets: ", uids)
+            feature_set_uids = ["unversioned-" + uid + "_" for uid in uids]
+            await run_in_threadpool(
+                framework.utils.singletons.db.get_db().delete_feature_sets,
+                session=db_session,
+                project=project,
+                uids=feature_set_uids,
+            )
+            print("[EYAL]: Done to delete feature sets")
 
     async def _inplace_model_endpoint(
         self,
@@ -825,6 +836,17 @@ class ModelEndpoints:
             project=project,
             amount=len(uids),
         )
+
+    # def _delete_model_endpoint_feature_sets(self, session, uids: list[str], project: str):
+    #     """
+    #     Delete the monitoring infrastructure of a given model endpoint based on endpoint id.
+    #
+    #     :param uids:          List of the model endpoints uids.
+    #     :param project:       The name of the project.
+    #     """
+    #     # adjust the uids
+    #     feature_set_uids = ["unversioned-" + uid + "_" for uid in uids]
+
 
     async def get_model_endpoint(
         self,
