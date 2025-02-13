@@ -41,7 +41,7 @@ class TDEngineConnector(TSDBConnector):
     """
 
     type: str = mm_schemas.TSDBTarget.TDEngine
-    database = f"{tdengine_schemas._MODEL_MONITORING_DATABASE}_{mlrun.mlconf.system_id}"
+    database = f"{tdengine_schemas._MODEL_MONITORING_DATABASE}_nqzoag"
 
     def __init__(
         self,
@@ -267,46 +267,44 @@ class TDEngineConnector(TSDBConnector):
         )
 
     def delete_tsdb_records(self, endpoint_id: str):
+        """
+        To delete subtables within TDEngine, we first query the subtable names with the provided endpoint_id.
+        Then, we drop each subtable.
+        """
         logger.debug(
             "Deleting model endpoint resources using the TDEngine connector",
             project=self.project,
             endpoint_id=endpoint_id,
         )
-        drop_statements = []
-        subtables_query = []
+
         delete_condition = {"endpoint_id": endpoint_id}
+        # Get all subtables with the provided endpoint_id
         subtables = []
-        for table in self.tables:
-            subtables_query.append(
-                self.tables[table]._get_subtables_query(values=delete_condition)
-            )
-        print("[EYAL]: subtables_query: ", subtables_query)
         try:
-            subtables = self.connection.run(
-                statements=subtables_query,
-                timeout=self._timeout,
-                retries=self._retries,
-            )
-            print("[EYAL]: subtables: ", subtables)
+            for table in self.tables:
+                get_subtable_query = self.tables[table]._get_subtables_query(values=delete_condition)
+                subtables_result = self.connection.run(
+                    query=get_subtable_query,
+                    timeout=self._timeout,
+                    retries=self._retries,
+                )
+                subtables.extend([subtable[0] for subtable in subtables_result.data])
         except Exception as e:
             logger.warning(
-                "Failed to get subtables for deletion. You may need to delete them manually.",
+                "Failed to get subtables for deletion. You may need to delete them manually."
+                "These can be found under the following supertables: app_results, "
+                "metrics, errors, and predictions.",
                 project=self.project,
                 endpoint_id=endpoint_id,
                 error=mlrun.errors.err_to_str(e),
             )
 
+        # Prepare the drop statements
+        drop_statements = []
         for subtable in subtables:
             drop_statements.append(
-                self.tables[subtable].drop_subtable_query(subtable=subtable)
+                self.tables[table].drop_subtable_query(subtable=subtable)
             )
-
-            # drop_statements.append(
-            #     self.tables[table].delete_from_supertable_query(values=delete_condition)
-            # )
-
-        print("[EYAL]: drop_statements: ", drop_statements)
-
         try:
             self.connection.run(
                 statements=drop_statements,
