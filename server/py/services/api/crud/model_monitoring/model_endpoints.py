@@ -847,7 +847,6 @@ class ModelEndpoints:
     #     # adjust the uids
     #     feature_set_uids = ["unversioned-" + uid + "_" for uid in uids]
 
-
     async def get_model_endpoint(
         self,
         name: str,

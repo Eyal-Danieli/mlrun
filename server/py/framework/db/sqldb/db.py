@@ -7554,10 +7554,10 @@ class SQLDB(DBInterface):
         )
 
     def delete_feature_sets(
-            self,
-            session: Session,
-            project: str,
-            uids: typing.Optional[list[str]] = None,
+        self,
+        session: Session,
+        project: str,
+        uids: typing.Optional[list[str]] = None,
     ) -> None:
         logger.debug("Removing feature sets from db", project=project)
 

@@ -1703,3 +1703,28 @@ def _validate_model_uri(model_obj, model_endpoint):
     )
 
     assert model_endpoint.spec.model_uri == model_artifact_uri
+
+
+import mlrun.model_monitoring.db.tsdb.tdengine
+import mlrun.model_monitoring.helpers
+from mlrun.datastore.datastore_profile import (
+    TDEngineDatastoreProfile,
+)
+
+
+def test_leftovers():
+    project = mlrun.get_or_create_project("tdengine-v1", "./")
+    tsdb_profile = TDEngineDatastoreProfile(
+        name="tdengine-mm",
+        user="root",
+        password="taosdata",
+        host="192.168.227.93",
+        port=6041,
+    )
+    mlrun.mlconf.system_id = "nqzoag"
+    connector = mlrun.model_monitoring.db.tsdb.tdengine.TDEngineConnector(
+        project=project.name, profile=tsdb_profile
+    )
+    print("[EYAL]: here")
+    connector.delete_tsdb_records(endpoint_id="8b3444bff98b42ce944765d392eb0ba1a")
+    print("[EYAL]: after delete")

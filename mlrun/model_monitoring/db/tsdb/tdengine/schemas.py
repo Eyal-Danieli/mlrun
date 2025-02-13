@@ -135,8 +135,6 @@ class TDEngineSchema:
             )
         return f"DELETE FROM {self.database}.{self.super_table} WHERE {values};"
 
-
-
     def drop_subtable_query(
         self,
         subtable: str,

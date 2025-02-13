@@ -282,7 +282,9 @@ class TDEngineConnector(TSDBConnector):
         subtables = []
         try:
             for table in self.tables:
-                get_subtable_query = self.tables[table]._get_subtables_query(values=delete_condition)
+                get_subtable_query = self.tables[table]._get_subtables_query(
+                    values=delete_condition
+                )
                 subtables_result = self.connection.run(
                     query=get_subtable_query,
                     timeout=self._timeout,
