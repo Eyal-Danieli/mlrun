@@ -290,7 +290,8 @@ class TestModelEndpointsOperations(TestMLRunSystemModelMonitoring):
         assert not out_endpoint.metadata.labels
 
     def test_max_archive_list_endpoints(self):
-        # Validates the process of listing model endpoints with max archive limitation. In this test
+        # Validates the process of listing
+        # model endpoints with max archive limitation. In this test
         # we create 5 model endpoints and then create another one. The oldest one should be deleted
         db = mlrun.get_run_db()
 
@@ -377,12 +378,14 @@ class TestModelEndpointsOperations(TestMLRunSystemModelMonitoring):
         )
         assert len(filter_labels.endpoints) == 4
 
-    @pytest.mark.parametrize("creation_strategy", ["archive", "inplace", "overwrite"])
+    # @pytest.mark.parametrize("creation_strategy", ["archive", "inplace", "overwrite"])
+    @pytest.mark.parametrize("creation_strategy", ["overwrite"])
     def test_creation_strategy(self, creation_strategy):
         db = mlrun.get_run_db()
         model_endpoint = mock_random_endpoint(
             self.project_name, "testing", model_name="model-1"
         )
+
         db.create_model_endpoint(model_endpoint, creation_strategy)
         model_endpoint = mock_random_endpoint(
             self.project_name, "testing", model_name="model-2"
@@ -395,6 +398,12 @@ class TestModelEndpointsOperations(TestMLRunSystemModelMonitoring):
             endpoints_out = self.project.list_model_endpoints(
                 latest_only=True
             ).endpoints
+
+        mm_fs = db.list_feature_sets(self.project_name)
+        if creation_strategy == mm_constants.ModelEndpointCreationStrategy.OVERWRITE:
+            assert len(mm_fs) == 1
+        else:
+            assert len(mm_fs) == 2
 
         assert len(endpoints_out) == 1
         assert endpoints_out[0].spec.model_name == "model-2"

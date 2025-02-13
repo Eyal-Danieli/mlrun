@@ -252,7 +252,6 @@ class ModelEndpoints:
                 model_endpoints_dict.get(method)[model_endpoint.metadata.uid] = (
                     attributes
                 )
-            # EYAL - here add feature set id to delete
             model_endpoints_dict.get("delete").extend(uid_to_delete)
 
         if model_endpoints_dict.get("create"):
@@ -419,6 +418,13 @@ class ModelEndpoints:
                 uids=old_uids,
                 project=model_endpoint.metadata.project,
             )
+            feature_set_uids = ["unversioned-" + uid + "_" for uid in old_uids]
+            await run_in_threadpool(
+                framework.utils.singletons.db.get_db().delete_feature_sets,
+                session=db_session,
+                project=model_endpoint.metadata.project,
+                uids=feature_set_uids,
+            )
             return model_endpoint, "", [], {}
         else:
             return model_endpoint, method, old_uids, {}
@@ -482,6 +488,13 @@ class ModelEndpoints:
                     self._delete_model_endpoint_monitoring_infra,
                     uids=uid_to_delete,
                     project=model_endpoint.metadata.project,
+                )
+                feature_set_uids = ["unversioned-" + uid + "_" for uid in uid_to_delete]
+                await run_in_threadpool(
+                    framework.utils.singletons.db.get_db().delete_feature_sets,
+                    session=db_session,
+                    project=model_endpoint.metadata.project,
+                    uids=feature_set_uids,
                 )
             await self._create_new_model_endpoint(
                 db_session=db_session, model_endpoint=model_endpoint
@@ -789,6 +802,12 @@ class ModelEndpoints:
         )
         await run_in_threadpool(
             self._delete_model_endpoint_monitoring_infra, uids=uids, project=project
+        )
+        await run_in_threadpool(
+            framework.utils.singletons.db.get_db().delete_feature_sets,
+            session=db_session,
+            project=project,
+            uids=[endpoint_id],
         )
         logger.info(
             "Model endpoint were delete",
