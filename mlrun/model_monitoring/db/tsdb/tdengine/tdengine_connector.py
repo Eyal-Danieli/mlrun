@@ -266,11 +266,39 @@ class TDEngineConnector(TSDBConnector):
             endpoint_id=endpoint_id,
         )
         drop_statements = []
+        subtables_query = []
         delete_condition = {"endpoint_id": endpoint_id}
+        subtables = []
         for table in self.tables:
-            drop_statements.append(
-                self.tables[table].delete_from_supertable_query(values=delete_condition)
+            subtables_query.append(
+                self.tables[table]._get_subtables_query(values=delete_condition)
             )
+        print("[EYAL]: subtables_query: ", subtables_query)
+        try:
+            subtables = self.connection.run(
+                statements=subtables_query,
+                timeout=self._timeout,
+                retries=self._retries,
+            )
+            print("[EYAL]: subtables: ", subtables)
+        except Exception as e:
+            logger.warning(
+                "Failed to get subtables for deletion. You may need to delete them manually.",
+                project=self.project,
+                endpoint_id=endpoint_id,
+                error=mlrun.errors.err_to_str(e),
+            )
+
+        for subtable in subtables:
+            drop_statements.append(
+                self.tables[subtable].drop_subtable_query(subtable=subtable)
+            )
+
+            # drop_statements.append(
+            #     self.tables[table].delete_from_supertable_query(values=delete_condition)
+            # )
+
+        print("[EYAL]: drop_statements: ", drop_statements)
 
         try:
             self.connection.run(
