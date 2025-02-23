@@ -277,13 +277,13 @@ class TDEngineConnector(TSDBConnector):
             number_of_endpoints_to_delete=len(endpoint_ids),
         )
 
-        delete_condition = {"endpoint_id": endpoint_ids}
+        # delete_condition = {"endpoint_id": endpoint_ids}
         # Get all subtables with the provided endpoint_id
         subtables = []
         try:
             for table in self.tables:
                 get_subtable_query = self.tables[table]._get_subtables_query(
-                    values=delete_condition
+                    filter_tag="endpoint_id", filter_values=endpoint_ids
                 )
                 subtables_result = self.connection.run(
                     query=get_subtable_query,
