@@ -133,11 +133,17 @@ class TDEngineSchema:
 
     def _get_subtables_query(
         self,
-        values: dict[str, Union[str, int, float, datetime.datetime]],
+        values: dict[str, Union[str, int, float, datetime.datetime, list[str]]],
+        operator: str = "OR",
     ) -> str:
-        values = " AND ".join(
-            f"{val} LIKE '{values[val]}'" for val in self.tags if val in values
-        )
+        if isinstance(values, list):
+            values = f" {operator} ".join(
+                f"{val} LIKE '{values[val]}'" for val in values if val in self.tags
+            )
+        else:
+            values = f" {operator} ".join(
+                f"{val} LIKE '{values[val]}'" for val in self.tags if val in values
+            )
         if not values:
             raise mlrun.errors.MLRunInvalidArgumentError(
                 f"values must contain at least one tag: {self.tags.keys()}"
