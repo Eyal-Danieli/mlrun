@@ -31,6 +31,7 @@ project = "test-tdengine-connector"
 connection_string = os.getenv("MLRUN_MODEL_ENDPOINT_MONITORING__TSDB_CONNECTION")
 database = "test_tdengine_connector_" + uuid.uuid4().hex
 
+
 def drop_database(connection: taosws.Connection) -> None:
     connection.execute(f"DROP DATABASE IF EXISTS {database}")
 

@@ -282,7 +282,7 @@ class TDEngineConnector(TSDBConnector):
         subtables = []
         try:
             for table in self.tables:
-                get_subtable_query = self.tables[table]._get_subtables_query(
+                get_subtable_query = self.tables[table]._get_subtables_query_by_tag(
                     filter_tag="endpoint_id", filter_values=endpoint_ids
                 )
                 subtables_result = self.connection.run(
