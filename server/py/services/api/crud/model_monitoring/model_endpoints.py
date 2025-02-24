@@ -283,17 +283,7 @@ class ModelEndpoints:
                 self._delete_model_endpoint_monitoring_infra,
                 uids=old_uids,
                 project=project,
-            )
-            # delete old feature sets
-            feature_set_uids = [
-                f"{framework.db.sqldb.db.unversioned_tagged_object_uid_prefix}{uid}_"
-                for uid in old_uids
-            ]
-            await run_in_threadpool(
-                framework.utils.singletons.db.get_db().delete_feature_sets,
-                session=db_session,
-                project=project,
-                uids=feature_set_uids,
+                db_session=db_session,
             )
 
     async def _inplace_model_endpoint(
@@ -428,17 +418,9 @@ class ModelEndpoints:
                 self._delete_model_endpoint_monitoring_infra,
                 uids=old_uids,
                 project=model_endpoint.metadata.project,
+                db_session=db_session,
             )
-            feature_set_uids = [
-                f"{framework.db.sqldb.db.unversioned_tagged_object_uid_prefix}{uid}_"
-                for uid in old_uids
-            ]
-            await run_in_threadpool(
-                framework.utils.singletons.db.get_db().delete_feature_sets,
-                session=db_session,
-                project=model_endpoint.metadata.project,
-                uids=feature_set_uids,
-            )
+
             return model_endpoint, "", [], {}
         else:
             return model_endpoint, method, old_uids, {}
@@ -502,17 +484,9 @@ class ModelEndpoints:
                     self._delete_model_endpoint_monitoring_infra,
                     uids=uid_to_delete,
                     project=model_endpoint.metadata.project,
+                    db_session=db_session,
                 )
-                feature_set_uids = [
-                    f"{framework.db.sqldb.db.unversioned_tagged_object_uid_prefix}{uid}_"
-                    for uid in old_uids
-                ]
-                await run_in_threadpool(
-                    framework.utils.singletons.db.get_db().delete_feature_sets,
-                    session=db_session,
-                    project=model_endpoint.metadata.project,
-                    uids=feature_set_uids,
-                )
+
             await self._create_new_model_endpoint(
                 db_session=db_session, model_endpoint=model_endpoint
             )
@@ -823,14 +797,12 @@ class ModelEndpoints:
             uid=endpoint_id,
         )
         await run_in_threadpool(
-            self._delete_model_endpoint_monitoring_infra, uids=uids, project=project
-        )
-        await run_in_threadpool(
-            framework.utils.singletons.db.get_db().delete_feature_sets,
-            session=db_session,
+            self._delete_model_endpoint_monitoring_infra,
+            uids=uids,
             project=project,
-            uids=[endpoint_id],
+            db_session=db_session,
         )
+
         logger.info(
             "Model endpoint were delete",
             project=project,
@@ -840,12 +812,15 @@ class ModelEndpoints:
             amount=len(uids),
         )
 
-    def _delete_model_endpoint_monitoring_infra(self, uids: list[str], project: str):
+    def _delete_model_endpoint_monitoring_infra(
+        self, uids: list[str], project: str, db_session: sqlalchemy.orm.Session
+    ):
         """
         Delete the monitoring infrastructure of a given model endpoint based on endpoint id.
 
         :param uids:          List of the model endpoints uids.
         :param project:       The name of the project.
+        :param db_session:    A session that manages the current dialog with the database.
         """
 
         # delete jsons
@@ -869,6 +844,16 @@ class ModelEndpoints:
                 "Failed to delete TSDB resources, you may need to delete them manually",
                 error=mlrun.errors.err_to_str(e),
             )
+
+        # delete feature sets
+        feature_set_uids = [
+            f"{framework.db.sqldb.db.unversioned_tagged_object_uid_prefix}{uid}_"
+            for uid in uids
+        ]
+
+        framework.utils.singletons.db.get_db().delete_feature_sets(
+            session=db_session, project=project, uids=feature_set_uids
+        )
 
         logger.info(
             "Model endpoint monitoring infrastructure were deleted",
