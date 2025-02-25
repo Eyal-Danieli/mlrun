@@ -18,6 +18,7 @@ import uuid
 from datetime import datetime
 from typing import Callable, Optional
 
+import fastapi
 import sqlalchemy.orm
 from fastapi.concurrency import run_in_threadpool
 
@@ -46,6 +47,7 @@ from mlrun.utils import logger, parse_artifact_uri
 
 import framework.api.utils
 import framework.db.sqldb.db
+import framework.utils.background_tasks
 import framework.utils.singletons.db
 import services.api.crud.model_monitoring.deployment
 import services.api.crud.model_monitoring.helpers
@@ -225,6 +227,7 @@ class ModelEndpoints:
             ]
         ],
         project: str,
+        background_tasks: fastapi.BackgroundTasks,
     ) -> None:
         # extra improvement to list all the relevant meps before - can be relevant to inplace and to the deletion
         # extra improvement to upsert all feature sets together
@@ -284,6 +287,7 @@ class ModelEndpoints:
                 uids=old_uids,
                 project=project,
                 db_session=db_session,
+                background_tasks=background_tasks,
             )
 
     async def _inplace_model_endpoint(
@@ -385,6 +389,7 @@ class ModelEndpoints:
         self,
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
+        # background_tasks: fastapi.BackgroundTasks,
         model_obj: Optional[mlrun.artifacts.ModelArtifact] = None,
         upsert: bool = True,
     ) -> tuple[mlrun.common.schemas.ModelEndpoint, str, list[str], dict]:
@@ -813,7 +818,11 @@ class ModelEndpoints:
         )
 
     def _delete_model_endpoint_monitoring_infra(
-        self, uids: list[str], project: str, db_session: sqlalchemy.orm.Session
+        self,
+        uids: list[str],
+        project: str,
+        db_session: sqlalchemy.orm.Session,
+        background_tasks: Optional[fastapi.BackgroundTasks] = None,
     ):
         """
         Delete the monitoring infrastructure of a given model endpoint based on endpoint id.
@@ -830,20 +839,43 @@ class ModelEndpoints:
             ModelMonitoringSchedulesFile(project=project, endpoint_id=uid).delete()
 
         # delete tsdb records
-        try:
-            tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+        # try:
+
+        background_task_name = str(uuid.uuid4())
+        if background_tasks:
+            print(
+                "[EYAL]: YES BACKGROUND -  going to delete tsdb records in the background"
+            )
+            # Run the deletion of the TSDB records in the background
+            framework.utils.background_tasks.ProjectBackgroundTasksHandler().create_background_task(
+                db_session,
+                project,
+                background_tasks,
+                ModelEndpoints.delete_tsdb_records,
+                mlrun.mlconf.background_tasks.default_timeouts.operations.delete_function,
+                background_task_name,
+                db_session,
                 project=project,
-                secret_provider=services.api.crud.secrets.get_project_secret_provider(
-                    project=project
-                ),
+                uids=uids,
             )
-            tsdb_connector.delete_tsdb_records(endpoint_ids=uids)
-            logger.info("TSDB resources were deleted")
-        except mlrun.errors.MLRunInvalidMMStoreTypeError as e:
-            logger.info(
-                "Failed to delete TSDB resources, you may need to delete them manually",
-                error=mlrun.errors.err_to_str(e),
+        else:
+            print(
+                "[EYAL]: NOT BACKGROUND - going to delete tsdb records not as part of background"
             )
+            ModelEndpoints.delete_tsdb_records(project=project, uids=uids)
+            # tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+            #     project=project,
+            #     secret_provider=services.api.crud.secrets.get_project_secret_provider(
+            #         project=project
+            #     ),
+            # )
+            # tsdb_connector.delete_tsdb_records(endpoint_ids=uids)
+            # logger.info("TSDB resources were deleted")
+        # except mlrun.errors.MLRunInvalidMMStoreTypeError as e:
+        #     logger.info(
+        #         "Failed to delete TSDB resources, you may need to delete them manually",
+        #         error=mlrun.errors.err_to_str(e),
+        #     )
 
         # delete feature sets
         feature_set_uids = [
@@ -860,6 +892,23 @@ class ModelEndpoints:
             project=project,
             amount=len(uids),
         )
+
+    @staticmethod
+    async def delete_tsdb_records(project: str, uids: list[str]):
+        try:
+            tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+                project=project,
+                secret_provider=services.api.crud.secrets.get_project_secret_provider(
+                    project=project
+                ),
+            )
+            tsdb_connector.delete_tsdb_records(endpoint_ids=uids)
+            logger.info("TSDB resources were deleted")
+        except mlrun.errors.MLRunInvalidMMStoreTypeError as e:
+            logger.info(
+                "Failed to delete TSDB resources, you may need to delete them manually",
+                error=mlrun.errors.err_to_str(e),
+            )
 
     async def get_model_endpoint(
         self,

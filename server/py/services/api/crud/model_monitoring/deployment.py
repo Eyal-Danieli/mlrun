@@ -1346,6 +1346,7 @@ class MonitoringDeployment:
         function: dict,
         function_name: str,
         project: str,
+        background_tasks: fastapi.BackgroundTasks,
     ):
         """
         Create model endpoints for the given function.
@@ -1400,7 +1401,10 @@ class MonitoringDeployment:
             batch = model_endpoints_instructions[i : i + batchsize]
             coroutines.append(
                 MonitoringDeployment._create_model_endpoint_limited(
-                    semaphore, batch, project
+                    semaphore=semaphore,
+                    model_endpoints_instructions=batch,
+                    project=project,
+                    background_tasks=background_tasks,
                 )
             )
 
@@ -1422,12 +1426,14 @@ class MonitoringDeployment:
             ]
         ],
         project: str,
+        background_tasks: fastapi.BackgroundTasks,
     ):
         async with semaphore:
             result = await framework.db.session.run_async_function_with_new_db_session(
                 func=services.api.crud.ModelEndpoints().create_model_endpoints,
                 model_endpoints_instructions=model_endpoints_instructions,
                 project=project,
+                background_tasks=background_tasks,
             )
             return result
 
@@ -1638,6 +1644,7 @@ class MonitoringDeployment:
             function,
             function_name,
             project_name,
+            background_tasks,
         )
 
     @staticmethod
