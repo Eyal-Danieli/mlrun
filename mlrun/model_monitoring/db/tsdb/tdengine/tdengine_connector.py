@@ -75,22 +75,8 @@ class TDEngineConnector(TSDBConnector):
         """Establish a connection to the TSDB server."""
         logger.debug("Creating a new connection to TDEngine", project=self.project)
         conn = TDEngineConnection(self._tdengine_connection_profile.dsn())
-        conn.run(
-            statements=f"CREATE DATABASE IF NOT EXISTS {self.database}",
-            timeout=self._timeout,
-            retries=self._retries,
-        )
-        conn.prefix_statements = [f"USE {self.database}"]
-        logger.debug("Connected to TDEngine", project=self.project)
-        return conn
 
-    @staticmethod
-    def _close_connection():
-        """Close the connection to the TDEngine."""
-        global _connection
-        if _connection:
-            _connection.close()
-            _connection = None
+        return conn
 
     def _init_super_tables(self):
         """Initialize the super tables for the TSDB."""
@@ -109,8 +95,26 @@ class TDEngineConnector(TSDBConnector):
             ),
         }
 
+    def _create_db_if_not_exists(self):
+        """Create the database if it does not exist."""
+        self.connection.run(
+            statements=f"CREATE DATABASE IF NOT EXISTS {self.database}",
+            timeout=self._timeout,
+            retries=self._retries,
+        )
+        self.connection.prefix_statements = [f"USE {self.database}"]
+        logger.debug(
+            "The TDEngine database is currently in use",
+            project=self.project,
+            database=self.database,
+        )
+
     def create_tables(self):
         """Create TDEngine supertables."""
+
+        # Create the database if it does not exist
+        self._create_db_if_not_exists()
+
         for table in self.tables:
             create_table_query = self.tables[table]._create_super_table_query()
             conn = self.connection
@@ -352,9 +356,6 @@ class TDEngineConnector(TSDBConnector):
                     project=self.project,
                     database=self.database,
                 )
-
-                # Close the connection
-                self._close_connection()
 
             except Exception as e:
                 logger.warning(
