@@ -84,6 +84,14 @@ class TDEngineConnector(TSDBConnector):
         logger.debug("Connected to TDEngine", project=self.project)
         return conn
 
+    @staticmethod
+    def _close_connection():
+        """Close the connection to the TDEngine."""
+        global _connection
+        if _connection:
+            _connection.close()
+            _connection = None
+
     def _init_super_tables(self):
         """Initialize the super tables for the TSDB."""
         self.tables = {
@@ -344,6 +352,10 @@ class TDEngineConnector(TSDBConnector):
                     project=self.project,
                     database=self.database,
                 )
+
+                # Close the connection
+                self._close_connection()
+
             except Exception as e:
                 logger.warning(
                     "Failed to drop the database. You may need to drop it manually if it is empty.",
