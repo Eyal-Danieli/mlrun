@@ -97,6 +97,7 @@ class TDEngineConnector(TSDBConnector):
 
     def _create_db_if_not_exists(self):
         """Create the database if it does not exist."""
+        self.connection.prefix_statements = []
         self.connection.run(
             statements=f"CREATE DATABASE IF NOT EXISTS {self.database}",
             timeout=self._timeout,

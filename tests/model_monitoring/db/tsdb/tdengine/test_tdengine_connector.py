@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import uuid
 from collections.abc import Iterator
 from datetime import datetime, timezone
@@ -80,7 +79,6 @@ def test_write_application_event(
         "result_extra_data": """{"question": "Who wrote 'To Kill a Mockingbird'?"}""",
         "result_value": result_value,
     }
-    connector._create_connection()  # Recreate the connection to verify that the database exists
     connector.create_tables()
     connector.write_application_event(data)
     read_data_kwargs = {
