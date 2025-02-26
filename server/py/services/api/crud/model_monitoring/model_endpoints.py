@@ -854,7 +854,6 @@ class ModelEndpoints:
                 ModelEndpoints.delete_tsdb_records,
                 mlrun.mlconf.background_tasks.default_timeouts.operations.delete_function,
                 background_task_name,
-                db_session,
                 project,
                 uids,
             )
