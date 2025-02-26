@@ -80,7 +80,6 @@ def test_write_application_event(
         "result_extra_data": """{"question": "Who wrote 'To Kill a Mockingbird'?"}""",
         "result_value": result_value,
     }
-
     connector.create_tables()
 
     # Write an event
