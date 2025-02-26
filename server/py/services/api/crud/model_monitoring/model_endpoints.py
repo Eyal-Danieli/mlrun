@@ -855,8 +855,8 @@ class ModelEndpoints:
                 mlrun.mlconf.background_tasks.default_timeouts.operations.delete_function,
                 background_task_name,
                 db_session,
-                project=project,
-                uids=uids,
+                project,
+                uids,
             )
         else:
             print(
