@@ -282,6 +282,7 @@ class ModelEndpoints:
                 project=project,
                 uids=old_uids,
             )
+            # delete monitoring infra including tsdb data that will be deleted in a background task
             await run_in_threadpool(
                 self._delete_model_endpoint_monitoring_infra,
                 uids=old_uids,
@@ -827,9 +828,13 @@ class ModelEndpoints:
         """
         Delete the monitoring infrastructure of a given model endpoint based on endpoint id.
 
-        :param uids:          List of the model endpoints uids.
-        :param project:       The name of the project.
-        :param db_session:    A session that manages the current dialog with the database.
+        :param uids:             List of the model endpoints uids.
+        :param project:          The name of the project.
+        :param db_session:       A session that manages the current dialog with the database.
+        :param background_tasks: A background task that will be used to delete the TSDB records in the background. Note
+                                 that this is an optional value that will be used when we delete multiple model
+                                 endpoints as part of the `create_model_endpoints` API.
+                                 In case we delete a single model endpoint, there is no need to use a background task.
         """
 
         # delete jsons
@@ -852,7 +857,7 @@ class ModelEndpoints:
                 project,
                 background_tasks,
                 ModelEndpoints.delete_tsdb_records,
-                mlrun.mlconf.background_tasks.default_timeouts.operations.delete_function,
+                mlrun.mlconf.background_tasks.default_timeouts.operations.model_endpoint_tsdb_leftovers,
                 background_task_name,
                 project,
                 uids,
