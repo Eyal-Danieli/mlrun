@@ -1346,7 +1346,7 @@ class MonitoringDeployment:
         function: dict,
         function_name: str,
         project: str,
-        background_tasks: fastapi.BackgroundTasks,
+        delete_background_task: fastapi.BackgroundTasks,
     ):
         """
         Create model endpoints for the given function.
@@ -1356,9 +1356,10 @@ class MonitoringDeployment:
         3. Update the router model endpoint instructions with the children uids.
         4. Create the Router model endpoints according to the instructions list.
 
-        :param function:        The function object.
-        :param function_name:   The name of the function.
-        :param project:         The project name.
+        :param function:               The function object.
+        :param function_name:          The name of the function.
+        :param project:                The project name.
+        :param delete_background_task: A background task that will be used to delete old TSDB records (if required).
         """
         logger.info(
             "Start Running BGT for model endpoint creation",
@@ -1404,7 +1405,7 @@ class MonitoringDeployment:
                     semaphore=semaphore,
                     model_endpoints_instructions=batch,
                     project=project,
-                    background_tasks=background_tasks,
+                    delete_background_task=delete_background_task,
                 )
             )
 
@@ -1426,14 +1427,14 @@ class MonitoringDeployment:
             ]
         ],
         project: str,
-        background_tasks: fastapi.BackgroundTasks,
+        delete_background_task: fastapi.BackgroundTasks,
     ):
         async with semaphore:
             result = await framework.db.session.run_async_function_with_new_db_session(
                 func=services.api.crud.ModelEndpoints().create_model_endpoints,
                 model_endpoints_instructions=model_endpoints_instructions,
                 project=project,
-                background_tasks=background_tasks,
+                delete_background_task=delete_background_task,
             )
             return result
 

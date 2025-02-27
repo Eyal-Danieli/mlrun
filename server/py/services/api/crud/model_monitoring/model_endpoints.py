@@ -65,7 +65,7 @@ class ModelEndpoints:
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
         creation_strategy: mlrun.common.schemas.ModelEndpointCreationStrategy,
-        background_tasks: fastapi.BackgroundTasks,
+        delete_background_task: fastapi.BackgroundTasks,
         model_path: Optional[str] = None,
         upsert: bool = True,
     ) -> typing.Union[tuple[mlrun.common.schemas.ModelEndpoint, str, list[str], dict],]:
@@ -85,6 +85,8 @@ class ModelEndpoints:
             * **archive**:
             1. If model endpoints with the same name exist, preserve them.
             2. Create a new model endpoint with the same name and set it to `latest`.
+        :param delete_background_task: A background task that will be used to delete old TSDB
+                                       records (if required).
         :param model_path:             The path to the model artifact.
         :param upsert:                 If True, will execute the creation/deletion/updating
                                        of the model endpoint in the DB.
@@ -175,7 +177,7 @@ class ModelEndpoints:
                 model_endpoint=model_endpoint,
                 model_obj=model_obj,
                 upsert=upsert,
-                background_tasks=background_tasks,
+                delete_background_task=delete_background_task,
             )
         elif (
             creation_strategy
@@ -189,7 +191,7 @@ class ModelEndpoints:
             ) = await self._overwrite_model_endpoint(
                 db_session=db_session,
                 model_endpoint=model_endpoint,
-                background_tasks=background_tasks,
+                delete_background_task=delete_background_task,
                 model_obj=model_obj,
                 upsert=upsert,
             )
@@ -208,7 +210,7 @@ class ModelEndpoints:
                 model_obj=model_obj,
                 delete_old=True,
                 upsert=upsert,
-                background_tasks=background_tasks,
+                delete_background_task=delete_background_task,
             )
         else:
             raise mlrun.errors.MLRunInvalidArgumentError(
@@ -231,7 +233,7 @@ class ModelEndpoints:
             ]
         ],
         project: str,
-        background_tasks: fastapi.BackgroundTasks,
+        delete_background_task: fastapi.BackgroundTasks,
     ) -> None:
         # extra improvement to list all the relevant meps before - can be relevant to inplace and to the deletion
         # extra improvement to upsert all feature sets together
@@ -292,14 +294,14 @@ class ModelEndpoints:
                 uids=old_uids,
                 project=project,
                 db_session=db_session,
-                background_tasks=background_tasks,
+                delete_background_task=delete_background_task,
             )
 
     async def _inplace_model_endpoint(
         self,
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
-        background_tasks: fastapi.BackgroundTasks,
+        delete_background_task: fastapi.BackgroundTasks,
         model_obj: Optional[mlrun.artifacts.ModelArtifact] = None,
         upsert: bool = True,
     ) -> tuple[mlrun.common.schemas.ModelEndpoint, str, list[str], dict]:
@@ -324,7 +326,7 @@ class ModelEndpoints:
                 model_endpoint=model_endpoint,
                 upsert=upsert,
                 model_obj=model_obj,
-                background_tasks=background_tasks,
+                delete_background_task=delete_background_task,
             )
 
         model_endpoint.metadata.uid = exist_model_endpoint.metadata.uid
@@ -396,7 +398,7 @@ class ModelEndpoints:
         self,
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
-        background_tasks: fastapi.BackgroundTasks,
+        delete_background_task: fastapi.BackgroundTasks,
         model_obj: Optional[mlrun.artifacts.ModelArtifact] = None,
         upsert: bool = True,
     ) -> tuple[mlrun.common.schemas.ModelEndpoint, str, list[str], dict]:
@@ -418,7 +420,7 @@ class ModelEndpoints:
         model_endpoint, method, _, _ = await self._archive_model_endpoint(
             db_session=db_session,
             model_endpoint=model_endpoint,
-            background_tasks=background_tasks,
+            delete_background_task=delete_background_task,
             model_obj=model_obj,
             upsert=upsert,
         )
@@ -435,7 +437,7 @@ class ModelEndpoints:
                 uids=old_uids,
                 project=model_endpoint.metadata.project,
                 db_session=db_session,
-                background_tasks=background_tasks,
+                delete_background_task=delete_background_task,
             )
 
             return model_endpoint, "", [], {}
@@ -446,7 +448,7 @@ class ModelEndpoints:
         self,
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
-        background_tasks: fastapi.BackgroundTasks,
+        delete_background_task: fastapi.BackgroundTasks,
         model_obj: Optional[mlrun.artifacts.ModelArtifact] = None,
         delete_old: bool = False,
         upsert: bool = True,
@@ -503,7 +505,7 @@ class ModelEndpoints:
                     uids=uid_to_delete,
                     project=model_endpoint.metadata.project,
                     db_session=db_session,
-                    background_tasks=background_tasks,
+                    delete_background_task=delete_background_task,
                 )
 
             await self._create_new_model_endpoint(
@@ -771,7 +773,7 @@ class ModelEndpoints:
         name: str,
         project: str,
         db_session: sqlalchemy.orm.Session,
-        background_tasks: fastapi.BackgroundTasks,
+        delete_background_task: fastapi.BackgroundTasks,
         function_name: Optional[str] = None,
         function_tag: Optional[str] = None,
         endpoint_id: Optional[str] = None,
@@ -779,12 +781,13 @@ class ModelEndpoints:
         """
         Delete the record of a given model endpoint based on endpoint id.
 
-        :param name:          The name of the model endpoint.
-        :param project:       The name of the project.
-        :param db_session:    A session that manages the current dialog with the database
-        :param function_name: The name of the function.
-        :param function_tag:  The tag of the function.
-        :param endpoint_id:   The unique id of the model endpoint.
+        :param name:                   The name of the model endpoint.
+        :param project:                The name of the project.
+        :param db_session:             A session that manages the current dialog with the database
+        :param delete_background_task: A background task that will be used to delete old TSDB records in the background.
+        :param function_name:          The name of the function.
+        :param function_tag:           The tag of the function.
+        :param endpoint_id:            The unique id of the model endpoint.
 
         """
         if function_name and function_tag is None:
@@ -821,7 +824,7 @@ class ModelEndpoints:
             uids=uids,
             project=project,
             db_session=db_session,
-            background_tasks=background_tasks,
+            delete_background_task=delete_background_task,
         )
 
         logger.info(
@@ -838,18 +841,15 @@ class ModelEndpoints:
         uids: list[str],
         project: str,
         db_session: sqlalchemy.orm.Session,
-        background_tasks: fastapi.BackgroundTasks,
+        delete_background_task: fastapi.BackgroundTasks,
     ):
         """
         Delete the monitoring infrastructure of a given model endpoint based on endpoint id.
 
-        :param uids:             List of the model endpoints uids.
-        :param project:          The name of the project.
-        :param db_session:       A session that manages the current dialog with the database.
-        :param background_tasks: A background task that will be used to delete the TSDB records in the background. Note
-                                 that this is an optional value that will be used when we delete multiple model
-                                 endpoints as part of the `create_model_endpoints` API.
-                                 In case we delete a single model endpoint, there is no need to use a background task.
+        :param uids:                   List of the model endpoints uids.
+        :param project:                The name of the project.
+        :param db_session:             A session that manages the current dialog with the database.
+        :param delete_background_task: A background task that will be used to delete old TSDB records in the background.
         """
 
         # delete jsons
@@ -867,7 +867,7 @@ class ModelEndpoints:
         framework.utils.background_tasks.ProjectBackgroundTasksHandler().create_background_task(
             db_session,
             project,
-            background_tasks,
+            delete_background_task,
             ModelEndpoints.delete_tsdb_records,
             mlrun.mlconf.background_tasks.default_timeouts.operations.model_endpoint_tsdb_leftovers,
             background_task_name,
