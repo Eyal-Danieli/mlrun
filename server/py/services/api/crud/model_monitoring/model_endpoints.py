@@ -65,6 +65,7 @@ class ModelEndpoints:
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
         creation_strategy: mlrun.common.schemas.ModelEndpointCreationStrategy,
+        background_tasks: fastapi.BackgroundTasks,
         model_path: Optional[str] = None,
         upsert: bool = True,
     ) -> typing.Union[tuple[mlrun.common.schemas.ModelEndpoint, str, list[str], dict],]:
@@ -174,6 +175,7 @@ class ModelEndpoints:
                 model_endpoint=model_endpoint,
                 model_obj=model_obj,
                 upsert=upsert,
+                background_tasks=background_tasks,
             )
         elif (
             creation_strategy
@@ -187,6 +189,7 @@ class ModelEndpoints:
             ) = await self._overwrite_model_endpoint(
                 db_session=db_session,
                 model_endpoint=model_endpoint,
+                background_tasks=background_tasks,
                 model_obj=model_obj,
                 upsert=upsert,
             )
@@ -205,6 +208,7 @@ class ModelEndpoints:
                 model_obj=model_obj,
                 delete_old=True,
                 upsert=upsert,
+                background_tasks=background_tasks,
             )
         else:
             raise mlrun.errors.MLRunInvalidArgumentError(
@@ -295,6 +299,7 @@ class ModelEndpoints:
         self,
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
+        background_tasks: fastapi.BackgroundTasks,
         model_obj: Optional[mlrun.artifacts.ModelArtifact] = None,
         upsert: bool = True,
     ) -> tuple[mlrun.common.schemas.ModelEndpoint, str, list[str], dict]:
@@ -319,6 +324,7 @@ class ModelEndpoints:
                 model_endpoint=model_endpoint,
                 upsert=upsert,
                 model_obj=model_obj,
+                background_tasks=background_tasks,
             )
 
         model_endpoint.metadata.uid = exist_model_endpoint.metadata.uid
@@ -390,7 +396,7 @@ class ModelEndpoints:
         self,
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
-        # background_tasks: fastapi.BackgroundTasks,
+        background_tasks: fastapi.BackgroundTasks,
         model_obj: Optional[mlrun.artifacts.ModelArtifact] = None,
         upsert: bool = True,
     ) -> tuple[mlrun.common.schemas.ModelEndpoint, str, list[str], dict]:
@@ -410,7 +416,11 @@ class ModelEndpoints:
         ]
 
         model_endpoint, method, _, _ = await self._archive_model_endpoint(
-            db_session, model_endpoint, model_obj, upsert=upsert
+            db_session=db_session,
+            model_endpoint=model_endpoint,
+            background_tasks=background_tasks,
+            model_obj=model_obj,
+            upsert=upsert,
         )
         if old_uids and upsert:
             # delete old versions
@@ -425,6 +435,7 @@ class ModelEndpoints:
                 uids=old_uids,
                 project=model_endpoint.metadata.project,
                 db_session=db_session,
+                background_tasks=background_tasks,
             )
 
             return model_endpoint, "", [], {}
@@ -435,6 +446,7 @@ class ModelEndpoints:
         self,
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
+        background_tasks: fastapi.BackgroundTasks,
         model_obj: Optional[mlrun.artifacts.ModelArtifact] = None,
         delete_old: bool = False,
         upsert: bool = True,
@@ -491,6 +503,7 @@ class ModelEndpoints:
                     uids=uid_to_delete,
                     project=model_endpoint.metadata.project,
                     db_session=db_session,
+                    background_tasks=background_tasks,
                 )
 
             await self._create_new_model_endpoint(
@@ -758,6 +771,7 @@ class ModelEndpoints:
         name: str,
         project: str,
         db_session: sqlalchemy.orm.Session,
+        background_tasks: fastapi.BackgroundTasks,
         function_name: Optional[str] = None,
         function_tag: Optional[str] = None,
         endpoint_id: Optional[str] = None,
@@ -807,6 +821,7 @@ class ModelEndpoints:
             uids=uids,
             project=project,
             db_session=db_session,
+            background_tasks=background_tasks,
         )
 
         logger.info(
@@ -823,7 +838,7 @@ class ModelEndpoints:
         uids: list[str],
         project: str,
         db_session: sqlalchemy.orm.Session,
-        background_tasks: Optional[fastapi.BackgroundTasks] = None,
+        background_tasks: fastapi.BackgroundTasks,
     ):
         """
         Delete the monitoring infrastructure of a given model endpoint based on endpoint id.
@@ -844,42 +859,24 @@ class ModelEndpoints:
             ModelMonitoringSchedulesFile(project=project, endpoint_id=uid).delete()
 
         # delete tsdb records
-        # try:
-
         background_task_name = str(uuid.uuid4())
-        if background_tasks:
-            print(
-                "[EYAL]: YES BACKGROUND -  going to delete tsdb records in the background"
-            )
-            # Run the deletion of the TSDB records in the background
-            framework.utils.background_tasks.ProjectBackgroundTasksHandler().create_background_task(
-                db_session,
-                project,
-                background_tasks,
-                ModelEndpoints.delete_tsdb_records,
-                mlrun.mlconf.background_tasks.default_timeouts.operations.model_endpoint_tsdb_leftovers,
-                background_task_name,
-                project,
-                uids,
-            )
-        else:
-            print(
-                "[EYAL]: NOT BACKGROUND - going to delete tsdb records not as part of background"
-            )
-            ModelEndpoints.delete_tsdb_records(project=project, uids=uids)
-            # tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
-            #     project=project,
-            #     secret_provider=services.api.crud.secrets.get_project_secret_provider(
-            #         project=project
-            #     ),
-            # )
-            # tsdb_connector.delete_tsdb_records(endpoint_ids=uids)
-            # logger.info("TSDB resources were deleted")
-        # except mlrun.errors.MLRunInvalidMMStoreTypeError as e:
-        #     logger.info(
-        #         "Failed to delete TSDB resources, you may need to delete them manually",
-        #         error=mlrun.errors.err_to_str(e),
-        #     )
+        print(
+            "[EYAL]: YES BACKGROUND -  going to delete tsdb records in the background"
+        )
+        # Run the deletion of the TSDB records in the background
+        framework.utils.background_tasks.ProjectBackgroundTasksHandler().create_background_task(
+            db_session,
+            project,
+            background_tasks,
+            ModelEndpoints.delete_tsdb_records,
+            mlrun.mlconf.background_tasks.default_timeouts.operations.model_endpoint_tsdb_leftovers,
+            background_task_name,
+            project,
+            uids,
+            int(
+                mlrun.mlconf.background_tasks.default_timeouts.operations.model_endpoint_tsdb_leftovers
+            ),
+        )
 
         # delete feature sets
         feature_set_uids = [
@@ -898,7 +895,9 @@ class ModelEndpoints:
         )
 
     @staticmethod
-    async def delete_tsdb_records(project: str, uids: list[str]):
+    async def delete_tsdb_records(
+        project: str, uids: list[str], delete_timeout: Optional[int] = None
+    ):
         try:
             tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
                 project=project,
@@ -906,7 +905,9 @@ class ModelEndpoints:
                     project=project
                 ),
             )
-            tsdb_connector.delete_tsdb_records(endpoint_ids=uids)
+            tsdb_connector.delete_tsdb_records(
+                endpoint_ids=uids, delete_timeout=delete_timeout
+            )
             logger.info("TSDB resources were deleted")
         except mlrun.errors.MLRunInvalidMMStoreTypeError as e:
             logger.info(

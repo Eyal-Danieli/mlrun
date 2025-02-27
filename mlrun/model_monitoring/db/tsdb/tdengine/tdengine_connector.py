@@ -286,7 +286,9 @@ class TDEngineConnector(TSDBConnector):
             flush_after_seconds=tsdb_batching_timeout_secs,
         )
 
-    def delete_tsdb_records(self, endpoint_ids: list[str]):
+    def delete_tsdb_records(
+        self, endpoint_ids: list[str], delete_timeout: Optional[int] = None
+    ):
         """
         To delete subtables within TDEngine, we first query the subtables names with the provided endpoint_ids.
         Then, we drop each subtable.
@@ -306,7 +308,7 @@ class TDEngineConnector(TSDBConnector):
                 )
                 subtables_result = self.connection.run(
                     query=get_subtable_query,
-                    timeout=self._timeout,
+                    timeout=mlrun.mlconf.model_endpoint_monitoring.tdengine.timeout,
                     retries=self._retries,
                 )
                 subtables.extend([subtable[0] for subtable in subtables_result.data])
@@ -325,10 +327,11 @@ class TDEngineConnector(TSDBConnector):
             drop_statements.append(
                 self.tables[table].drop_subtable_query(subtable=subtable)
             )
+        print("[EYAL]: delete_timeout: ", delete_timeout)
         try:
             self.connection.run(
                 statements=drop_statements,
-                timeout=self._timeout,
+                timeout=delete_timeout or self._timeout,
                 retries=self._retries,
             )
         except Exception as e:

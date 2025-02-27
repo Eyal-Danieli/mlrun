@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import Annotated, Literal, Optional, Union
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Path, Query
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
@@ -54,6 +54,7 @@ async def create_model_endpoint(
     model_endpoint: schemas.ModelEndpoint,
     project: ProjectAnnotation,
     creation_strategy: mm_constants.ModelEndpointCreationStrategy,
+    background_tasks: BackgroundTasks,
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(framework.api.deps.get_db_session),
 ) -> schemas.ModelEndpoint:
@@ -104,6 +105,7 @@ async def create_model_endpoint(
         model_endpoint=model_endpoint,
         creation_strategy=creation_strategy,
         upsert=True,
+        background_tasks=background_tasks,
     )
     return model_endpoint
 
@@ -170,6 +172,7 @@ async def patch_model_endpoint(
 async def delete_model_endpoint(
     project: ProjectAnnotation,
     name: str,
+    background_tasks: BackgroundTasks,
     function_name: Optional[str] = None,
     function_tag: Optional[str] = None,
     endpoint_id: typing.Optional[EndpointIDAnnotation] = "*",
@@ -204,6 +207,7 @@ async def delete_model_endpoint(
         function_tag=function_tag,
         db_session=db_session,
         endpoint_id=endpoint_id,
+        background_tasks=background_tasks,
     )
 
 
