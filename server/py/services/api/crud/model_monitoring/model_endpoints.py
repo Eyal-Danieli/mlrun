@@ -253,6 +253,7 @@ class ModelEndpoints:
                 db_session=db_session,
                 model_endpoint=model_endpoint,
                 creation_strategy=creation_strategy,
+                delete_background_task=delete_background_task,
                 model_path=model_path,
                 upsert=False,
             )
