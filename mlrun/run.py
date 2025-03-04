@@ -367,8 +367,11 @@ def import_function(url="", secrets=None, db="", project=None, new_name=None):
             raise KeyError(f"function {name}:{tag} not found in the DB")
     else:
         url, is_hub_uri = extend_hub_uri_if_needed(url)
+        print("[EYAL]: import url : ", url)
         runtime = import_function_to_dict(url, secrets)
     function = new_function(runtime=runtime)
+    print("[EYAL]: Function type : ", function)
+    print("[EYAL]: Function : ", function.to_dict())
     project = project or mlrun.mlconf.default_project
     # When we're importing from the hub we want to assign to a target project, otherwise any store on it will
     # simply default to the default project
