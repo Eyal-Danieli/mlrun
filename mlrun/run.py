@@ -566,6 +566,9 @@ def new_function(
 
 
 def _process_runtime(command, runtime, kind):
+    print("[EYAL]: now in process_runtime, command : ", command)
+    print("[EYAL]: now in process_runtime, runtime : ", runtime)
+    print("[EYAL]: now in process_runtime, kind : ", kind)
     if runtime and hasattr(runtime, "to_dict"):
         runtime = runtime.to_dict()
     if runtime and isinstance(runtime, dict):
