@@ -77,6 +77,25 @@ if typing.TYPE_CHECKING:
     from mlrun.datastore import DataItem
 
 
+def get_module(code="", application_class="", workdir=None, secrets=None):
+    command, _ = load_func_code(code, workdir, secrets=secrets)
+    if not command:
+        raise ValueError("nothing to run, specify command or function")
+
+    command = os.path.join(workdir or "", command)
+    path = Path(command)
+    mod_name = path.name
+    if path.suffix:
+        mod_name = mod_name[: -len(path.suffix)]
+    spec = imputil.spec_from_file_location(mod_name, command)
+    if spec is None:
+        raise OSError(f"cannot import from {command!r}")
+    mod = imputil.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    if not application_class:
+
+    return mod
+
 def function_to_module(code="", workdir=None, secrets=None, silent=False):
     """Load code, notebook or mlrun function as .py module
     this function can import a local/remote py file or notebook
