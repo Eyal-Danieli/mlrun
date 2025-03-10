@@ -54,7 +54,7 @@ def get_or_create_model_endpoint(
     model_endpoint_name: str = "",
     endpoint_id: str = "",
     function_name: str = "",
-    function_tag: str = "latest",
+    function_tag: str = "",
     context: typing.Optional["mlrun.MLClientCtx"] = None,
     sample_set_statistics: typing.Optional[dict[str, typing.Any]] = None,
     monitoring_mode: mm_constants.ModelMonitoringMode = mm_constants.ModelMonitoringMode.enabled,
@@ -100,7 +100,7 @@ def get_or_create_model_endpoint(
             name=model_endpoint_name,
             endpoint_id=endpoint_id,
             function_name=function_name,
-            function_tag=function_tag or "latest",
+            function_tag=function_tag,
             feature_analysis=feature_analysis,
         )
         # If other fields provided, validate that they are correspond to the existing model endpoint data
