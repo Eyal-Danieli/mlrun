@@ -3868,7 +3868,7 @@ class SQLDB(DBInterface):
         function_tag: typing.Optional[str] = None,
         uid: typing.Optional[str] = None,
     ) -> typing.Union[ModelEndpoint, None]:
-        self._check_model_endpoint_params(uid, function_name, function_tag)
+        # self._check_model_endpoint_params(uid, function_name, function_tag)
         if uid:
             mep_record = self._get_class_instance_by_uid(
                 session, ModelEndpoint, name, project, uid
@@ -5117,6 +5117,10 @@ class SQLDB(DBInterface):
         function_tag: Optional[str],
         _get_query: bool = False,
     ):
+        print('[EYAL]: now in _get_mep_latest_instance')
+        print('[EYAL]: now in _get_mep_latest_instance, name:', name)
+        print('[EYAL]: now in _get_mep_latest_instance, function_name:', function_name)
+        print('[EYAL]: now in _get_mep_latest_instance, function_tag:', function_tag)
         query = (
             session.query(cls)
             .options(
@@ -5140,10 +5144,20 @@ class SQLDB(DBInterface):
             cls.Tag.name == mlrun.common.constants.RESERVED_TAG_NAME_LATEST
         )
 
+        print('[EYAL]: now in _get_mep_latest_instance, query:', query)
+
         if _get_query:
             return query
 
-        return query.first()  # Use `.first()` instead of `.one_or_none()` for safety
+        if query.count() > 1:
+            raise mlrun.errors.MLRunInvalidArgumentError(
+                "More than one instance found for the given Model Endpoint."
+                "Please provide endpoint_id or function name and tag to get a specific instance."
+            )
+
+        return query.one_or_none()
+
+        # return query.one_or_none()  # Use `.first()` instead of `.one_or_none()` for safety
 
     def _get_mep_instances(
         self,
@@ -7536,6 +7550,9 @@ class SQLDB(DBInterface):
         function_tag: typing.Optional[str] = None,
         uid: typing.Optional[str] = None,
     ) -> mlrun.common.schemas.ModelEndpoint:
+        print("[EYAL]: now in get_model_endpoint")
+        print("[EYAL]: now in get_model_endpoint, function_name:", function_name)
+        print("[EYAL]: now in get_model_endpoint, function_tag:", function_tag)
         normalized_function_name = (
             mlrun.utils.normalize_name(function_name) if function_name else None
         )
