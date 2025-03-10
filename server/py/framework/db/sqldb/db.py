@@ -5117,10 +5117,6 @@ class SQLDB(DBInterface):
         function_tag: Optional[str],
         _get_query: bool = False,
     ):
-        print('[EYAL]: now in _get_mep_latest_instance')
-        print('[EYAL]: now in _get_mep_latest_instance, name:', name)
-        print('[EYAL]: now in _get_mep_latest_instance, function_name:', function_name)
-        print('[EYAL]: now in _get_mep_latest_instance, function_tag:', function_tag)
         query = (
             session.query(cls)
             .options(
@@ -5143,8 +5139,6 @@ class SQLDB(DBInterface):
         query = query.join(cls.tags).filter(
             cls.Tag.name == mlrun.common.constants.RESERVED_TAG_NAME_LATEST
         )
-
-        print('[EYAL]: now in _get_mep_latest_instance, query:', query)
 
         if _get_query:
             return query
@@ -7550,9 +7544,6 @@ class SQLDB(DBInterface):
         function_tag: typing.Optional[str] = None,
         uid: typing.Optional[str] = None,
     ) -> mlrun.common.schemas.ModelEndpoint:
-        print("[EYAL]: now in get_model_endpoint")
-        print("[EYAL]: now in get_model_endpoint, function_name:", function_name)
-        print("[EYAL]: now in get_model_endpoint, function_tag:", function_tag)
         normalized_function_name = (
             mlrun.utils.normalize_name(function_name) if function_name else None
         )
