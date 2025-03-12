@@ -160,14 +160,15 @@ class V3IOTSDBConnector(TSDBConnector):
         """
 
         for table_name in self.tables:
-            logger.info("Creating table in V3IO TSDB", table_name=table_name)
-            table = self.tables[table_name]
-            self.frames_client.create(
-                backend=_TSDB_BE,
-                table=table,
-                if_exists=v3io_frames.IGNORE,
-                rate=_TSDB_RATE,
-            )
+            if table_name != mm_schemas.V3IOTSDBTables.PREDICTIONS:
+                logger.info("Creating table in V3IO TSDB", table_name=table_name)
+                table = self.tables[table_name]
+                self.frames_client.create(
+                    backend=_TSDB_BE,
+                    table=table,
+                    if_exists=v3io_frames.IGNORE,
+                    rate=_TSDB_RATE,
+                )
 
     def apply_monitoring_stream_steps(
         self,
@@ -241,7 +242,7 @@ class V3IOTSDBConnector(TSDBConnector):
             index_cols=[
                 mm_schemas.EventFieldType.ENDPOINT_ID,
             ],
-            aggr="count,avg",
+            aggr="count,avg,last",
             aggr_granularity="1m",
             max_events=tsdb_batching_max_events,
             flush_after_seconds=tsdb_batching_timeout_secs,
