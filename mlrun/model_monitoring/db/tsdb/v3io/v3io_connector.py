@@ -983,6 +983,9 @@ class V3IOTSDBConnector(TSDBConnector):
         filter_query = self._get_endpoint_filter(endpoint_id=endpoint_ids)
         start = start or (mlrun.utils.datetime_now() - timedelta(hours=24))
         start, end = self._get_start_end(start, end)
+        print("[EYAL]: now in get_avg_latency, start is", start)
+        print("[EYAL]: now in get_avg_latency, end is", end)
+        print("[EYAL]: now in get_avg_latency, filter_query is", filter_query)
         res = self._get_records(
             table=mm_schemas.V3IOTSDBTables.PREDICTIONS,
             start=start,
@@ -992,6 +995,7 @@ class V3IOTSDBConnector(TSDBConnector):
             agg_funcs=["avg"],
             get_raw=get_raw,
         )
+        print("[EYAL]: now in get_avg_latency, res is", res)
 
         if get_raw:
             return res
