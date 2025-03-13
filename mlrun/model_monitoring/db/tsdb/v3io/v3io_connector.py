@@ -264,15 +264,28 @@ class V3IOTSDBConnector(TSDBConnector):
             key=mm_schemas.EventFieldType.ENDPOINT_ID,
         )
 
+        # # Write last request timestamp to KV table
+        # graph.add_step(
+        #     "mlrun.datastore.NoSqlTarget",
+        #     name="KVTarget",
+        #     after="tsdb_predictions",
+        #     path=f"{self.container}/{self.last_request_table}",
+        #     columns=[mm_schemas.EventFieldType.LAST_REQUEST_TIMESTAMP],
+        #     # infer_columns_from_data=True,
+        #     key_columns=[EventFieldType.ENDPOINT_ID],
+        # )
+
         # Write last request timestamp to KV table
         graph.add_step(
-            "mlrun.datastore.NoSqlTarget",
-            name="KVTarget",
+            "storey.NoSqlTarget",
+            name="KVTargetv2",
             after="tsdb_predictions",
-            path=f"{self.container}/{self.last_request_table}",
-            columns=[mm_schemas.EventFieldType.LAST_REQUEST_TIMESTAMP],
+            # container=self.container,
+            table=f"v3io:///users/pipelines/{self.project}/model-endpoints/lastrequest/",
+            columns=[EventFieldType.LAST_REQUEST_TIMESTAMP],
+            index_cols=[EventFieldType.ENDPOINT_ID],
             # infer_columns_from_data=True,
-            key=EventFieldType.ENDPOINT_ID,
+            # key_column=[EventFieldType.ENDPOINT_ID],
         )
 
         # Emits the event in window size of events based on sample_window size (10 by default)

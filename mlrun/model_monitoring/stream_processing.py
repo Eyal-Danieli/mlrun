@@ -223,6 +223,18 @@ class EventStreamProcessor:
             aggregate_period=self.aggregate_period,
         )
 
+        # # Write last request timestamp to KV table
+        # graph.add_step(
+        #     "storey.NoSqlTarget",
+        #     name="KVTargetv2",
+        #     after="tsdb_predictions",
+        #     table=f"v3io://users/pipelines/{self.project}/model-endpoints/lastrequest/",
+        #     columns=[EventFieldType.LAST_REQUEST_TIMESTAMP],
+        #     index_cols=[EventFieldType.ENDPOINT_ID],
+        #     # infer_columns_from_data=True,
+        #     # key_column=[EventFieldType.ENDPOINT_ID],
+        # )
+
         # Parquet branch
         # Filter and validate different keys before writing the data to Parquet target
         def apply_process_before_parquet():
@@ -234,6 +246,8 @@ class EventStreamProcessor:
             )
 
         apply_process_before_parquet()
+
+
 
         # Write the Parquet target file, partitioned by key (endpoint_id) and time.
         def apply_parquet_target():
