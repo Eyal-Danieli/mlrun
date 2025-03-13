@@ -147,6 +147,19 @@ class V3IOTSDBConnector(TSDBConnector):
         )
         self.tables[mm_schemas.V3IOTSDBTables.PREDICTIONS] = monitoring_predictions_path
 
+        # initialize kv table
+        last_request_full_table_path = mlrun.mlconf.get_model_monitoring_file_target_path(
+            project=self.project,
+            kind=mm_schemas.FileTargetKind.LAST_REQUEST,
+        )
+        (
+            _,
+            _,
+            self.last_request_table,
+        ) = mlrun.common.model_monitoring.helpers.parse_model_endpoint_store_prefix(
+            last_request_full_table_path
+        )
+
     def create_tables(self) -> None:
         """
         Create the tables using the TSDB connector. These are the tables that are stored in the V3IO TSDB:
@@ -249,6 +262,17 @@ class V3IOTSDBConnector(TSDBConnector):
             max_events=tsdb_batching_max_events,
             flush_after_seconds=tsdb_batching_timeout_secs,
             key=mm_schemas.EventFieldType.ENDPOINT_ID,
+        )
+
+        # Write latency per prediction, labeled by endpoint ID only
+        graph.add_step(
+            "mlrun.datastore.NoSqlTarget",
+            name="KVTarget",
+            after="tsdb_predictions",
+            table=f"{self.container}/{self.last_request_table}",
+            columns=[mm_schemas.EventFieldType.LAST_REQUEST_TIMESTAMP],
+            attributes={"infer_columns_from_data": True},
+            key=EventFieldType.ENDPOINT_ID,
         )
 
         # Emits the event in window size of events based on sample_window size (10 by default)
