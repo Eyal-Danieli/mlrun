@@ -264,14 +264,14 @@ class V3IOTSDBConnector(TSDBConnector):
             key=mm_schemas.EventFieldType.ENDPOINT_ID,
         )
 
-        # Write latency per prediction, labeled by endpoint ID only
+        # Write last request timestamp to KV table
         graph.add_step(
             "mlrun.datastore.NoSqlTarget",
             name="KVTarget",
             after="tsdb_predictions",
-            table=f"{self.container}/{self.last_request_table}",
+            path=f"{self.container}/{self.last_request_table}",
             columns=[mm_schemas.EventFieldType.LAST_REQUEST_TIMESTAMP],
-            attributes={"infer_columns_from_data": True},
+            # infer_columns_from_data=True,
             key=EventFieldType.ENDPOINT_ID,
         )
 
