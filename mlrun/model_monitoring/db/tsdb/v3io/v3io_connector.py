@@ -72,6 +72,16 @@ class V3IOTSDBConnector(TSDBConnector):
         self._frames_client: Optional[v3io_frames.client.ClientBase] = None
         self._init_tables_path()
         self._create_table = create_table
+        self._v3io_client = None
+
+    @property
+    def v3io_client(self):
+        if not self._v3io_client:
+            self._v3io_client = mlrun.utils.v3io_clients.get_v3io_client(
+                endpoint=mlrun.mlconf.v3io_api
+            )
+        return self._v3io_client
+
 
     @property
     def frames_client(self) -> v3io_frames.client.ClientBase:
@@ -279,14 +289,12 @@ class V3IOTSDBConnector(TSDBConnector):
         # Write last request timestamp to KV table
         graph.add_step(
             "storey.NoSqlTarget",
-            name="KVTargetv2",
+            name="KVTargetv",
             after="tsdb_predictions",
             # container=self.container,
-            table=f"v3io:///users/pipelines/{self.project}/model-endpoints/lastrequest/",
+            table=f"v3io:///users/pipelines/{self.project}/model-endpoints/last-request/",
             columns=[EventFieldType.LAST_REQUEST_TIMESTAMP],
             index_cols=[EventFieldType.ENDPOINT_ID],
-            # infer_columns_from_data=True,
-            # key_column=[EventFieldType.ENDPOINT_ID],
         )
 
         # Emits the event in window size of events based on sample_window size (10 by default)
@@ -858,6 +866,10 @@ class V3IOTSDBConnector(TSDBConnector):
             ),  # pyright: ignore[reportArgumentType]
         )
 
+
+    def get_last_request_v2(self):
+        pass
+
     def get_last_request(
         self,
         endpoint_ids: Union[str, list[str]],
@@ -1065,19 +1077,21 @@ class V3IOTSDBConnector(TSDBConnector):
 
         :return: A list of `ModelEndpointMonitoringMetric` objects.
         """
-
+        print("[EYAL]: now in add_basic_metrics")
+        print("[EYAL]: now in add_basic_metrics, model_endpoint_objects", model_endpoint_objects)
         uids = []
         model_endpoint_objects_by_uid = {}
         for model_endpoint_object in model_endpoint_objects:
             uid = model_endpoint_object.metadata.uid
             uids.append(uid)
             model_endpoint_objects_by_uid[uid] = model_endpoint_object
+        print("[EYAL]: now in add_basic_metrics, model_endpoint_objects_by_uid", model_endpoint_objects_by_uid)
 
         error_count_res = self.get_error_count(endpoint_ids=uids, get_raw=True)
         last_request_res = self.get_last_request(endpoint_ids=uids, get_raw=True)
         avg_latency_res = self.get_avg_latency(endpoint_ids=uids, get_raw=True)
         drift_status_res = self.get_drift_status(endpoint_ids=uids, get_raw=True)
-
+        print("[EYAL]: now in add_basic_metrics, last_request_res", last_request_res)
         def add_metric(
             metric: str,
             column_name: str,
@@ -1102,6 +1116,9 @@ class V3IOTSDBConnector(TSDBConnector):
             "last(last_request_timestamp)",
             last_request_res,
         )
+
+        print("[EYAL]: now trying to get last request from last_request_res")
+
         add_metric(
             "avg_latency",
             "avg(latency)",
@@ -1112,4 +1129,6 @@ class V3IOTSDBConnector(TSDBConnector):
             "max(result_status)",
             drift_status_res,
         )
+
+        print("[EYAL]: now in add_basic_metrics after add metrics, model_endpoint_objects_by_uid", model_endpoint_objects_by_uid)
         return list(model_endpoint_objects_by_uid.values())
