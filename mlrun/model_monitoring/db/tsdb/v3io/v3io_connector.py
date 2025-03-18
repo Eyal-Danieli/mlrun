@@ -881,7 +881,7 @@ class V3IOTSDBConnector(TSDBConnector):
         # each dictionary contains the endpoint id and the last request timestamp
         res = self.v3io_client.kv.new_cursor(
             container=self.container,
-            table=self.last_request_table,
+            table_path=self.last_request_table,
             filter=filter_expression,
         ).all()
 
