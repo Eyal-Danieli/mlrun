@@ -292,7 +292,7 @@ class V3IOTSDBConnector(TSDBConnector):
             name="KVTargetv",
             after="tsdb_predictions",
             # container=self.container,
-            table=f"v3io:///users/pipelines/{self.project}/model-endpoints/last-request/",
+            table=f"v3io:///users/pipelines/{self.project}/model-endpoints/last_request/",
             columns=[EventFieldType.LAST_REQUEST_TIMESTAMP],
             index_cols=[EventFieldType.ENDPOINT_ID],
         )
@@ -887,7 +887,7 @@ class V3IOTSDBConnector(TSDBConnector):
                 filter_expression=filter_expression,
             ).all()
         except Exception as e:
-            logger.error(f"Failed to get last request timestamp from V3IO KV table.",
+            logger.warning(f"Failed to get last request timestamp from V3IO KV table.",
                          err=mlrun.errors.err_to_str(e),
                          project=self.project,
                          table=self.last_request_table,)
