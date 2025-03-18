@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from io import StringIO
 from typing import Callable, Literal, Optional, Union
 
@@ -78,10 +78,9 @@ class V3IOTSDBConnector(TSDBConnector):
     def v3io_client(self):
         if not self._v3io_client:
             self._v3io_client = mlrun.utils.v3io_clients.get_v3io_client(
-                endpoint=mlrun.mlconf.v3io_api
+                endpoint=mlrun.mlconf.v3io_api, access_key=self._v3io_access_key
             )
         return self._v3io_client
-
 
     @property
     def frames_client(self) -> v3io_frames.client.ClientBase:
@@ -158,9 +157,11 @@ class V3IOTSDBConnector(TSDBConnector):
         self.tables[mm_schemas.V3IOTSDBTables.PREDICTIONS] = monitoring_predictions_path
 
         # initialize kv table
-        last_request_full_table_path = mlrun.mlconf.get_model_monitoring_file_target_path(
-            project=self.project,
-            kind=mm_schemas.FileTargetKind.LAST_REQUEST,
+        last_request_full_table_path = (
+            mlrun.mlconf.get_model_monitoring_file_target_path(
+                project=self.project,
+                kind=mm_schemas.FileTargetKind.LAST_REQUEST,
+            )
         )
         (
             _,
@@ -275,24 +276,12 @@ class V3IOTSDBConnector(TSDBConnector):
             key=mm_schemas.EventFieldType.ENDPOINT_ID,
         )
 
-        # # Write last request timestamp to KV table
-        # graph.add_step(
-        #     "mlrun.datastore.NoSqlTarget",
-        #     name="KVTarget",
-        #     after="tsdb_predictions",
-        #     path=f"{self.container}/{self.last_request_table}",
-        #     columns=[mm_schemas.EventFieldType.LAST_REQUEST_TIMESTAMP],
-        #     # infer_columns_from_data=True,
-        #     key_columns=[EventFieldType.ENDPOINT_ID],
-        # )
-
         # Write last request timestamp to KV table
         graph.add_step(
             "storey.NoSqlTarget",
             name="KVTargetv",
             after="tsdb_predictions",
-            # container=self.container,
-            table=f"v3io:///users/pipelines/{self.project}/model-endpoints/last_request/",
+            table=f"v3io:///users/{self.last_request_table}",
             columns=[EventFieldType.LAST_REQUEST_TIMESTAMP],
             index_cols=[EventFieldType.ENDPOINT_ID],
         )
@@ -503,11 +492,30 @@ class V3IOTSDBConnector(TSDBConnector):
                         error=mlrun.errors.err_to_str(e),
                         project=self.project,
                     )
+
+        # clean the last request records from KV table
+        self._delete_last_request_records(endpoint_ids=endpoint_ids)
+
         logger.debug(
             "Deleted all model endpoint resources using the V3IO connector",
             project=self.project,
             number_of_endpoints_to_delete=len(endpoint_ids),
         )
+
+    def _delete_last_request_records(self, endpoint_ids: list[str]):
+        for endpoint_id in endpoint_ids:
+            try:
+                self.v3io_client.kv.delete(
+                    container=self.container,
+                    table=self.last_request_table,
+                    key=endpoint_id,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to delete last request record for endpoint '{endpoint_id}'",
+                    error=mlrun.errors.err_to_str(e),
+                    project=self.project,
+                )
 
     def get_model_endpoint_real_time_metrics(
         self, endpoint_id: str, metrics: list[str], start: str, end: str
@@ -866,9 +874,12 @@ class V3IOTSDBConnector(TSDBConnector):
             ),  # pyright: ignore[reportArgumentType]
         )
 
-
-    def get_last_request_v2(self, endpoint_ids: Union[str, list[str]]) -> dict[str, float]:
-
+    def get_last_request(
+        self,
+        endpoint_ids: Union[str, list[str]],
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> dict[str, float]:
         if isinstance(endpoint_ids, str):
             filter_expression = f"__name=='{endpoint_ids}'"
         else:
@@ -881,62 +892,21 @@ class V3IOTSDBConnector(TSDBConnector):
         # each dictionary contains the endpoint id and the last request timestamp
 
         try:
-                res = self.v3io_client.kv.new_cursor(
+            res = self.v3io_client.kv.new_cursor(
                 container=self.container,
                 table_path=self.last_request_table,
                 filter_expression=filter_expression,
             ).all()
         except Exception as e:
-            logger.warning(f"Failed to get last request timestamp from V3IO KV table.",
-                         err=mlrun.errors.err_to_str(e),
-                         project=self.project,
-                         table=self.last_request_table,)
+            logger.warning(
+                "Failed to get last request timestamp from V3IO KV table.",
+                err=mlrun.errors.err_to_str(e),
+                project=self.project,
+                table=self.last_request_table,
+            )
             return {}
 
-        return {d['__name']: d['last_request_timestamp'] for d in res}
-
-
-
-    def get_last_request(
-        self,
-        endpoint_ids: Union[str, list[str]],
-        start: Optional[datetime] = None,
-        end: Optional[datetime] = None,
-        get_raw: bool = False,
-    ) -> Union[pd.DataFrame, list[v3io_frames.client.RawFrame]]:
-        filter_query = self._get_endpoint_filter(endpoint_id=endpoint_ids)
-        start, end = self._get_start_end(start, end)
-
-        res = self._get_records(
-            table=mm_schemas.V3IOTSDBTables.PREDICTIONS,
-            start=start,
-            end=end,
-            filter_query=filter_query,
-            agg_funcs=["last"],
-            get_raw=get_raw,
-        )
-
-        if get_raw:
-            return res
-
-        df = res
-        if not df.empty:
-            df.rename(
-                columns={
-                    f"last({mm_schemas.EventFieldType.LAST_REQUEST_TIMESTAMP})": mm_schemas.EventFieldType.LAST_REQUEST,
-                    f"last({mm_schemas.EventFieldType.LATENCY})": f"last_{mm_schemas.EventFieldType.LATENCY}",
-                },
-                inplace=True,
-            )
-            df[mm_schemas.EventFieldType.LAST_REQUEST] = df[
-                mm_schemas.EventFieldType.LAST_REQUEST
-            ].map(
-                lambda last_request: datetime.fromtimestamp(
-                    last_request, tz=timezone.utc
-                )
-            )
-
-        return df.reset_index(drop=True)
+        return {d["__name"]: d["last_request_timestamp"] for d in res}
 
     def get_drift_status(
         self,
@@ -1105,20 +1075,25 @@ class V3IOTSDBConnector(TSDBConnector):
         :return: A list of `ModelEndpointMonitoringMetric` objects.
         """
         print("[EYAL]: now in add_basic_metrics")
-        print("[EYAL]: now in add_basic_metrics, model_endpoint_objects", model_endpoint_objects)
+        print(
+            "[EYAL]: now in add_basic_metrics, model_endpoint_objects",
+            model_endpoint_objects,
+        )
         uids = []
         model_endpoint_objects_by_uid = {}
         for model_endpoint_object in model_endpoint_objects:
             uid = model_endpoint_object.metadata.uid
             uids.append(uid)
             model_endpoint_objects_by_uid[uid] = model_endpoint_object
-        print("[EYAL]: now in add_basic_metrics, model_endpoint_objects_by_uid", model_endpoint_objects_by_uid)
+        print(
+            "[EYAL]: now in add_basic_metrics, model_endpoint_objects_by_uid",
+            model_endpoint_objects_by_uid,
+        )
 
         error_count_res = self.get_error_count(endpoint_ids=uids, get_raw=True)
-        last_request_res = self.get_last_request(endpoint_ids=uids, get_raw=True)
         avg_latency_res = self.get_avg_latency(endpoint_ids=uids, get_raw=True)
         drift_status_res = self.get_drift_status(endpoint_ids=uids, get_raw=True)
-        print("[EYAL]: now in add_basic_metrics, last_request_res", last_request_res)
+
         def add_metric(
             metric: str,
             column_name: str,
@@ -1144,8 +1119,6 @@ class V3IOTSDBConnector(TSDBConnector):
         #     last_request_res,
         # )
 
-
-
         add_metric(
             "avg_latency",
             "avg(latency)",
@@ -1158,13 +1131,22 @@ class V3IOTSDBConnector(TSDBConnector):
         )
 
         print("[EYAL]: now trying to get last request from last_request_res")
-        self._enrich_mep_with_last_request(model_endpoint_objects_by_uid=model_endpoint_objects_by_uid)
+        self._enrich_mep_with_last_request(
+            model_endpoint_objects_by_uid=model_endpoint_objects_by_uid
+        )
 
-        print("[EYAL]: now in add_basic_metrics after add metrics, model_endpoint_objects_by_uid", model_endpoint_objects_by_uid)
+        print(
+            "[EYAL]: now in add_basic_metrics after add metrics, model_endpoint_objects_by_uid",
+            model_endpoint_objects_by_uid,
+        )
         return list(model_endpoint_objects_by_uid.values())
 
-
-    def _enrich_mep_with_last_request(self, model_endpoint_objects_by_uid: dict[str, mlrun.common.schemas.ModelEndpoint]):
-        last_request_dictionary = self.get_last_request_v2(endpoint_ids=list(model_endpoint_objects_by_uid.keys()))
+    def _enrich_mep_with_last_request(
+        self,
+        model_endpoint_objects_by_uid: dict[str, mlrun.common.schemas.ModelEndpoint],
+    ):
+        last_request_dictionary = self.get_last_request(
+            endpoint_ids=list(model_endpoint_objects_by_uid.keys())
+        )
         for uid, mep in model_endpoint_objects_by_uid.items():
             mep.status.last_request = last_request_dictionary.get(uid)

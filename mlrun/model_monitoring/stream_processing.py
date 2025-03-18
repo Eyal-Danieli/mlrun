@@ -247,8 +247,6 @@ class EventStreamProcessor:
 
         apply_process_before_parquet()
 
-
-
         # Write the Parquet target file, partitioned by key (endpoint_id) and time.
         def apply_parquet_target():
             graph.add_step(
