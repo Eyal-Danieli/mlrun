@@ -867,8 +867,27 @@ class V3IOTSDBConnector(TSDBConnector):
         )
 
 
-    def get_last_request_v2(self):
-        pass
+    def get_last_request_v2(self, endpoint_ids: Union[str, list[str]]) -> dict[str, float]:
+
+        if isinstance(endpoint_ids, str):
+            filter_expression = f"__name=='{endpoint_ids}'"
+        else:
+            filter_expression = " OR ".join(
+                [f"__name=='{endpoint_id}'" for endpoint_id in endpoint_ids]
+            )
+
+        # Get the last request timestamp for each endpoint from the KV table.
+        # the result of the query is a list of dictionaries,
+        # each dictionary contains the endpoint id and the last request timestamp
+        res = self.v3io_client.kv.new_cursor(
+            container=self.container,
+            table=self.last_request_table,
+            filter=filter_expression,
+        ).all()
+
+        return {d['__name']: d['last_request_timestamp'] for d in res}
+
+
 
     def get_last_request(
         self,
@@ -1111,13 +1130,13 @@ class V3IOTSDBConnector(TSDBConnector):
             "count(error_count)",
             error_count_res,
         )
-        add_metric(
-            "last_request",
-            "last(last_request_timestamp)",
-            last_request_res,
-        )
+        # add_metric(
+        #     "last_request",
+        #     "last(last_request_timestamp)",
+        #     last_request_res,
+        # )
 
-        print("[EYAL]: now trying to get last request from last_request_res")
+
 
         add_metric(
             "avg_latency",
@@ -1130,5 +1149,14 @@ class V3IOTSDBConnector(TSDBConnector):
             drift_status_res,
         )
 
+        print("[EYAL]: now trying to get last request from last_request_res")
+        self._enrich_mep_with_last_request(model_endpoint_objects_by_uid=model_endpoint_objects_by_uid)
+
         print("[EYAL]: now in add_basic_metrics after add metrics, model_endpoint_objects_by_uid", model_endpoint_objects_by_uid)
         return list(model_endpoint_objects_by_uid.values())
+
+
+    def _enrich_mep_with_last_request(self, model_endpoint_objects_by_uid: dict[str, mlrun.common.schemas.ModelEndpoint]):
+        last_request_dictionary = self.get_last_request_v2(endpoint_ids=list(model_endpoint_objects_by_uid.keys()))
+        for uid, mep in model_endpoint_objects_by_uid.items():
+            mep.status.last_request = last_request_dictionary.get(uid)
