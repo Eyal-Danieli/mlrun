@@ -879,11 +879,19 @@ class V3IOTSDBConnector(TSDBConnector):
         # Get the last request timestamp for each endpoint from the KV table.
         # the result of the query is a list of dictionaries,
         # each dictionary contains the endpoint id and the last request timestamp
-        res = self.v3io_client.kv.new_cursor(
-            container=self.container,
-            table_path=self.last_request_table,
-            filter_expression=filter_expression,
-        ).all()
+
+        try:
+                res = self.v3io_client.kv.new_cursor(
+                container=self.container,
+                table_path=self.last_request_table,
+                filter_expression=filter_expression,
+            ).all()
+        except Exception as e:
+            logger.error(f"Failed to get last request timestamp from V3IO KV table.",
+                         err=mlrun.errors.err_to_str(e),
+                         project=self.project,
+                         table=self.last_request_table,)
+            return {}
 
         return {d['__name']: d['last_request_timestamp'] for d in res}
 
