@@ -882,7 +882,7 @@ class V3IOTSDBConnector(TSDBConnector):
         res = self.v3io_client.kv.new_cursor(
             container=self.container,
             table_path=self.last_request_table,
-            filter=filter_expression,
+            filter_expression=filter_expression,
         ).all()
 
         return {d['__name']: d['last_request_timestamp'] for d in res}
