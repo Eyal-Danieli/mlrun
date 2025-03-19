@@ -3889,6 +3889,7 @@ class HTTPRunDB(RunDBInterface):
             attributes_keys=attributes_keys,
             model_endpoint=model_endpoint,
         )
+        print("[EYAL]: patching attributes", attributes)
         response = self.api_call(
             method=mlrun.common.types.HTTPMethod.PATCH,
             path=path,
