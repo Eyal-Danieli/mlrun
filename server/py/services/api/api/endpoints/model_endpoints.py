@@ -154,7 +154,7 @@ async def patch_model_endpoint(
         )
     )
     attributes = {key: model_endpoint.get(key) for key in attributes_keys}
-
+    print("[EYAL]: now in patch_model_endpoint, attributes: ", attributes)
     return await services.api.crud.ModelEndpoints().patch_model_endpoint(
         name=model_endpoint.metadata.name,
         project=project,

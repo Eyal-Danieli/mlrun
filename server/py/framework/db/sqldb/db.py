@@ -7702,6 +7702,7 @@ class SQLDB(DBInterface):
                 session, mep_record, attributes, updated
             )
             self._upsert(session, [mep_record])
+            print("[EYAL]: updated mep_record", mep_record)
             return mep_record.uid
         else:
             raise mlrun.errors.MLRunNotFoundError(
