@@ -220,6 +220,11 @@ def record_results(
 
     timestamp = datetime_now()
     if infer_results_df is not None:
+        if model_endpoint.metadata.endpoint_type != mlrun.common.schemas.model_monitoring.EndpointType.BATCH_EP:
+            raise mlrun.errors.MLRunInvalidArgumentError(
+                "Inference results can be recorded only for batch endpoints."
+                "Therefore the current results won't be monitored."
+            )
         # Write the monitoring parquet to the relevant model endpoint context
         write_monitoring_df(
             feature_set_uri=model_endpoint.spec.monitoring_feature_set_uri,

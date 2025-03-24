@@ -259,6 +259,7 @@ class MonitoringApplicationController:
             mlrun.mlconf.artifact_path
         )
         self.storage_options = store.get_storage_options()
+        self.tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(project=self.project)
 
     @staticmethod
     def _get_model_monitoring_access_key() -> Optional[str]:
@@ -404,12 +405,21 @@ class MonitoringApplicationController:
                         first_request=first_request,
                         last_request=last_stream_timestamp,
                     ):
-                        df = m_fs.to_dataframe(
-                            start_time=start_infer_time,
-                            end_time=end_infer_time,
-                            time_column=mm_constants.EventFieldType.TIMESTAMP,
-                            storage_options=self.storage_options,
-                        )
+                        if not_batch_endpoint:
+                            # Serving endpoint - get the relevant window data from the TSDB
+                            df = self.tsdb_connector.read_predictions(
+                                start_time=start_infer_time,
+                                end_time=end_infer_time,
+                                endpoint_id=endpoint_id,
+                            )
+                        else:
+                            # Batch endpoint - get the relevant window data from the parquet target
+                            df = m_fs.to_dataframe(
+                                start_time=start_infer_time,
+                                end_time=end_infer_time,
+                                time_column=mm_constants.EventFieldType.TIMESTAMP,
+                                storage_options=self.storage_options,
+                            )
                         if len(df) == 0:
                             logger.info(
                                 "No data found for the given interval",
