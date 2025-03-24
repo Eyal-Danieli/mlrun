@@ -223,7 +223,7 @@ def record_results(
     if infer_results_df is not None:
         if model_endpoint.metadata.endpoint_type != mlrun.common.schemas.model_monitoring.EndpointType.BATCH_EP:
             logger.warning(
-                "Inference results can be recorded only for batch endpoints."
+                "Inference results can be recorded only for batch endpoints. "
                 "Therefore the current results won't be monitored."
             )
         else:
