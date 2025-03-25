@@ -405,13 +405,16 @@ class MonitoringApplicationController:
                         first_request=first_request,
                         last_request=last_stream_timestamp,
                     ):
+                        data_in_window = False
                         if not_batch_endpoint:
                             # Serving endpoint - get the relevant window data from the TSDB
-                            df = self.tsdb_connector.read_predictions(
-                                start_time=start_infer_time,
-                                end_time=end_infer_time,
+                            prediction_metric = self.tsdb_connector.read_predictions(
+                                start=start_infer_time,
+                                end=end_infer_time,
                                 endpoint_id=endpoint_id,
                             )
+                            if prediction_metric.data:
+                                data_in_window = True
                         else:
                             # Batch endpoint - get the relevant window data from the parquet target
                             df = m_fs.to_dataframe(
@@ -420,7 +423,9 @@ class MonitoringApplicationController:
                                 time_column=mm_constants.EventFieldType.TIMESTAMP,
                                 storage_options=self.storage_options,
                             )
-                        if len(df) == 0:
+                            if len(df) > 0:
+                                data_in_window = True
+                        if not data_in_window:
                             logger.info(
                                 "No data found for the given interval",
                                 start=start_infer_time,
