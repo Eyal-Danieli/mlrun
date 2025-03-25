@@ -235,13 +235,13 @@ def record_results(
                 infer_results_df=infer_results_df,
             )
 
-    # Update the last request time
-    update_model_endpoint_last_request(
-        project=project,
-        model_endpoint=model_endpoint,
-        current_request=timestamp,
-        db=db,
-    )
+            # Update the last request time
+            update_model_endpoint_last_request(
+                project=project,
+                model_endpoint=model_endpoint,
+                current_request=timestamp,
+                db=db,
+            )
 
     return model_endpoint
 
