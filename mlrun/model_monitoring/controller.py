@@ -450,8 +450,12 @@ class MonitoringApplicationController:
                         first_request=first_request,
                         last_request=last_stream_timestamp,
                     ):
+                        print("[EYAL]: now in model endpoint process")
+                        print("[EYAL]: now in model endpoint process, start_infer_time: ", start_infer_time)
+                        print("[EYAL]: now in model endpoint process, end_infer_time: ", end_infer_time)
                         data_in_window = False
                         if not_batch_endpoint:
+                            print("[EYAL]: NOT A BATCH ENDPOINT, endpoint_id: ", endpoint_id)
                             # Serving endpoint - get the relevant window data from the TSDB
                             prediction_metric = self.tsdb_connector.read_predictions(
                                 start=start_infer_time,
@@ -462,14 +466,17 @@ class MonitoringApplicationController:
                                 data_in_window = True
                         else:
                             # Batch endpoint - get the relevant window data from the parquet target
+                            print("[EYAL]: BATCH ENDPOINT, endpoint_id: ", endpoint_id)
                             df = m_fs.to_dataframe(
                                 start_time=start_infer_time,
                                 end_time=end_infer_time,
                                 time_column=mm_constants.EventFieldType.TIMESTAMP,
                                 storage_options=self.storage_options,
                             )
+                            print("[EYAL]: BATCH ENDPOINT, len of df: ", len(df))
                             if len(df) > 0:
                                 data_in_window = True
+                            print("[EYAL]: BATCH ENDPOINT, data_in_window: ", data_in_window)
                         if not data_in_window:
                             logger.info(
                                 "No data found for the given interval",
