@@ -259,7 +259,9 @@ class MonitoringApplicationController:
             mlrun.mlconf.artifact_path
         )
         self.storage_options = store.get_storage_options()
-        self.tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(project=self.project)
+        self.tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+            project=self.project
+        )
 
     @staticmethod
     def _get_model_monitoring_access_key() -> Optional[str]:
@@ -423,9 +425,9 @@ class MonitoringApplicationController:
             ]
 
             not_batch_endpoint = (
-                event[ControllerEvent.ENDPOINT_POLICY] != EndpointType.BATCH_EP
+                event[ControllerEvent.ENDPOINT_TYPE] != EndpointType.BATCH_EP
             )
-            m_fs = fstore.get_feature_set(event[ControllerEvent.FEATURE_SET_URI])
+
             logger.info(
                 "Starting analyzing for", timestamp=event[ControllerEvent.TIMESTAMP]
             )
@@ -450,12 +452,8 @@ class MonitoringApplicationController:
                         first_request=first_request,
                         last_request=last_stream_timestamp,
                     ):
-                        print("[EYAL]: now in model endpoint process")
-                        print("[EYAL]: now in model endpoint process, start_infer_time: ", start_infer_time)
-                        print("[EYAL]: now in model endpoint process, end_infer_time: ", end_infer_time)
                         data_in_window = False
                         if not_batch_endpoint:
-                            print("[EYAL]: NOT A BATCH ENDPOINT, endpoint_id: ", endpoint_id)
                             # Serving endpoint - get the relevant window data from the TSDB
                             prediction_metric = self.tsdb_connector.read_predictions(
                                 start=start_infer_time,
@@ -465,18 +463,18 @@ class MonitoringApplicationController:
                             if prediction_metric.data:
                                 data_in_window = True
                         else:
+                            m_fs = fstore.get_feature_set(
+                                event[ControllerEvent.FEATURE_SET_URI]
+                            )
                             # Batch endpoint - get the relevant window data from the parquet target
-                            print("[EYAL]: BATCH ENDPOINT, endpoint_id: ", endpoint_id)
                             df = m_fs.to_dataframe(
                                 start_time=start_infer_time,
                                 end_time=end_infer_time,
                                 time_column=mm_constants.EventFieldType.TIMESTAMP,
                                 storage_options=self.storage_options,
                             )
-                            print("[EYAL]: BATCH ENDPOINT, len of df: ", len(df))
                             if len(df) > 0:
                                 data_in_window = True
-                            print("[EYAL]: BATCH ENDPOINT, data_in_window: ", data_in_window)
                         if not data_in_window:
                             logger.info(
                                 "No data found for the given interval",
