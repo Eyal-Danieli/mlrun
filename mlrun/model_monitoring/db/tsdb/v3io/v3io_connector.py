@@ -906,7 +906,7 @@ class V3IOTSDBConnector(TSDBConnector):
                     table_path=self.last_request_table,
                 ).all()
                 last_request_timestamps.update(
-                    {d["__name"]: d["last_request_timestamp"] for d in res}
+                    {d["__name"]: d.get("last_request_timestamp") for d in res}
                 )
             else:
                 filter_expression = " OR ".join(
@@ -918,7 +918,7 @@ class V3IOTSDBConnector(TSDBConnector):
                     filter_expression=filter_expression,
                 ).all()
                 last_request_timestamps.update(
-                    {d["__name"]: d["last_request_timestamp"] for d in res}
+                    {d["__name"]: d.get("last_request_timestamp") for d in res}
                 )
         except Exception as e:
             logger.warning(
