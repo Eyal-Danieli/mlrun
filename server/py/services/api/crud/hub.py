@@ -69,6 +69,7 @@ class Hub(metaclass=mlrun.utils.singleton.Singleton):
         version: Optional[str] = None,
         tag: Optional[str] = None,
         force_refresh: bool = False,
+        entity_type: str = "functions"
     ) -> mlrun.common.schemas.hub.HubCatalog:
         """
         Getting the catalog object by source.
@@ -83,11 +84,14 @@ class Hub(metaclass=mlrun.utils.singleton.Singleton):
         """
         source_name = source.metadata.name
         if not self._catalogs.get(source_name) or force_refresh:
-            url = source.get_catalog_uri()
+            url = source.get_catalog_uri(entity_type=entity_type)
+            print("[EYAL]: now in get source catalog, url is", url)
             credentials = self._get_source_credentials(source_name)
             catalog_data = mlrun.run.get_object(url=url, secrets=credentials)
             catalog_dict = json.loads(catalog_data)
+            print("[EYAL]: now in get source catalog, catalog dict ", catalog_dict)
             catalog = self._transform_catalog_dict_to_schema(source, catalog_dict)
+            print("[EYAL]: now in get source catalog, catalog schema ", catalog)
             self._catalogs[source_name] = catalog
         else:
             catalog = self._catalogs[source_name]
@@ -190,11 +194,12 @@ class Hub(metaclass=mlrun.utils.singleton.Singleton):
         item_name: Optional[str] = None,
         tag: Optional[str] = None,
         version: Optional[str] = None,
+        entity_type: str = "functions"
     ) -> list[mlrun.common.schemas.IndexedHubSource]:
         hub_sources = framework.utils.singletons.db.get_db().list_hub_sources(
             db_session
         )
-        return self.filter_hub_sources(hub_sources, item_name, tag, version)
+        return self.filter_hub_sources(hub_sources, item_name, tag, version, entity_type=entity_type)
 
     def filter_hub_sources(
         self,
@@ -202,6 +207,7 @@ class Hub(metaclass=mlrun.utils.singleton.Singleton):
         item_name: Optional[str] = None,
         tag: Optional[str] = None,
         version: Optional[str] = None,
+        entity_type: str = "functions"
     ) -> list[mlrun.common.schemas.IndexedHubSource]:
         """
         Retrieve only the sources that contains the item name
@@ -214,6 +220,8 @@ class Hub(metaclass=mlrun.utils.singleton.Singleton):
 
         :return:
         """
+        print("[EYAL]: now in filter_hub_sources, sources=", sources)
+        print("[EYAL]: now in filter_hub_sources, item_name=", sources)
         if not item_name:
             if tag or version:
                 raise mlrun.errors.MLRunBadRequestError(
@@ -227,6 +235,7 @@ class Hub(metaclass=mlrun.utils.singleton.Singleton):
                 source=source.source,
                 version=version,
                 tag=tag,
+                entity_type=entity_type
             )
             for item in catalog.catalog:
                 if item.metadata.name == item_name:

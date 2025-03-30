@@ -56,10 +56,11 @@ class HubSource(BaseModel):
     status: Optional[ObjectStatus] = ObjectStatus(state="created")
 
     def get_full_uri(self, relative_path):
+        print("[EYAL]: now in get_full_uri, relative_path is", relative_path)
         return f"{self.spec.path}/{self.spec.object_type}/{self.spec.channel}/{relative_path}"
 
-    def get_catalog_uri(self):
-        return self.get_full_uri(mlrun.mlconf.hub.catalog_filename)
+    def get_catalog_uri(self, entity_type: str = "functions"):
+        return self.get_full_uri(f"{entity_type}/{mlrun.mlconf.hub.catalog_filename}")
 
     @classmethod
     def generate_default_source(cls):

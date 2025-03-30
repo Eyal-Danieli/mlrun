@@ -77,6 +77,7 @@ async def list_sources(
     auth_info: mlrun.common.schemas.AuthInfo = Depends(
         framework.api.deps.authenticate_request
     ),
+    entity_type: str = "functions"
 ):
     await (
         framework.utils.auth.verifier.AuthVerifier().query_global_resource_permissions(
@@ -92,6 +93,7 @@ async def list_sources(
         item_name,
         tag,
         version,
+        entity_type
     )
 
 

@@ -4189,6 +4189,7 @@ class HTTPRunDB(RunDBInterface):
         item_name: Optional[str] = None,
         tag: Optional[str] = None,
         version: Optional[str] = None,
+        entity_type: str = "functions"
     ) -> list[mlrun.common.schemas.hub.IndexedHubSource]:
         """
         List hub sources in the MLRun DB.
@@ -4207,6 +4208,8 @@ class HTTPRunDB(RunDBInterface):
             params["tag"] = tag
         if version:
             params["version"] = version
+        if entity_type:
+            params["entity-type"] = entity_type
         response = self.api_call(method="GET", path=path, params=params).json()
         results = []
         for item in response:
