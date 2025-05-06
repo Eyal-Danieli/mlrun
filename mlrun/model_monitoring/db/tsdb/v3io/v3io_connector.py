@@ -456,7 +456,7 @@ class V3IOTSDBConnector(TSDBConnector):
             tables = mm_schemas.V3IOTSDBTables.list()
         for table_to_delete in tables:
             try:
-                self.frames_client.delete(backend=_TSDB_BE, table=table_to_delete)
+                self.frames_client.delete(backend=_TSDB_BE, table=self.tables[table_to_delete])
             except v3io_frames.DeleteError as e:
                 logger.warning(
                     f"Failed to delete TSDB table '{table}'",
