@@ -117,6 +117,7 @@ class NopDB(RunDBInterface):
         project="",
         iter=0,
         format_: mlrun.common.formatters.RunFormat = mlrun.common.formatters.RunFormat.full,
+        limit: Optional[int] = None,
     ):
         pass
 
