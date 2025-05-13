@@ -29,3 +29,17 @@ class FunctionSummary(BaseModel):
     stats: Optional[dict] = None
 
 
+    @classmethod
+    def from_func(cls, func):
+        """
+        Create a FunctionSummary instance from a function object.
+        """
+        return cls(
+            name=func.metadata.name,
+            application_class=func.spec.application_class,
+            start_time=func.status.start_time,
+            updated_time=func.status.updated_time,
+            status=func.status.state,
+        )
+
+

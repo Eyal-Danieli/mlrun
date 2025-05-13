@@ -762,14 +762,24 @@ class MonitoringDeployment:
         Retrieve a list of all the model monitoring functions with their summaries.
         """
         mm_functions = self.list_model_monitoring_functions(labels=labels)
+        print("[EYAL]: mm_functions", mm_functions)
+        print("[EYAL]: mm_functions", mm_functions[0].to_dict())
         if names:
             mm_functions = [
                 fn for fn in mm_functions if fn["metadata"]["name"] in names
             ]
         if not mm_functions:
             logger.info("No model monitoring applications found")
+
         # if include_stats:
 
+    def _convert_to_function_summary(self, function, start: datetime, include_stats: bool = True):
+        func = mlrun.common.schemas.model_monitoring.FunctionSummary.from_func(function)
+        if include_stats:
+            tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+                project=self.project, secret_provider=self._secret_provider
+            )
+            # enrich func stats with #detections and #possible_detections
 
 
 

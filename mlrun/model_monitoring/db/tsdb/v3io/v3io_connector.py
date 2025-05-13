@@ -1177,3 +1177,12 @@ class V3IOTSDBConnector(TSDBConnector):
             mep.status.last_request = last_request_dictionary.get(
                 uid, mep.status.last_request
             )
+
+    def read_results_by_status(self,
+       endpoint_ids: Union[str, list[str]] = None,
+       application_names: Union[str, list[str]] = None,
+       start: Optional[datetime] = None,
+       end: Optional[datetime] = None,
+       result_status_list: Optional[list[str]] = None,
+      agg_funcs: Optional[list[str]] = None,):
+            pass
