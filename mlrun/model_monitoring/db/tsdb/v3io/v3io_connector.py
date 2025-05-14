@@ -711,6 +711,24 @@ class V3IOTSDBConnector(TSDBConnector):
             raise mlrun.errors.MLRunInvalidArgumentError(
                 f"Invalid 'endpoint_id' filter: must be a string or a list, endpoint_id: {endpoint_id}"
             )
+    @staticmethod
+    def _generate_filter_query(filter_key: str, filter_values: Union[str, list[str]]) -> Optional[str]:
+        if isinstance(filter_values, str):
+            return f"{filter_key}=='{filter_values}'"
+        elif isinstance(filter_values, list):
+            if len(filter_values) > V3IO_FRAMESD_MEPS_LIMIT:
+                logger.info(
+                    "The number of filter values exceeds the v3io-engine filter-expression limit, "
+                    "retrieving all the values from the db.",
+                    limit=V3IO_FRAMESD_MEPS_LIMIT,
+                    amount=len(filter_values),
+                )
+                return None
+            return f"{filter_key} IN({str(filter_values)[1:-1]}) "
+        else:
+            raise mlrun.errors.MLRunInvalidArgumentError(
+                f"Invalid filter key {filter_key}: must be a string or a list, filter values: {filter_values}"
+            )
 
     def read_metrics_data(
         self,
@@ -1184,5 +1202,30 @@ class V3IOTSDBConnector(TSDBConnector):
        start: Optional[datetime] = None,
        end: Optional[datetime] = None,
        result_status_list: Optional[list[str]] = None,
-      agg_funcs: Optional[list[str]] = None,):
-            pass
+        agg_funcs: Optional[list[str]] = None,):
+
+        """
+
+
+        """
+        filter_query = ""
+        if endpoint_ids:
+            filter_query = self._generate_filter_query(filter_key=mm_schemas.ApplicationEvent.ENDPOINT_ID,
+                                                       filter_values=endpoint_ids)
+        if application_names:
+            filter_query = self._generate_filter_query(
+                filter_key=mm_schemas.ApplicationEvent.APPLICATION_NAME,
+                filter_values=application_names,
+            )
+        if result_status_list:
+            filter_query = self._generate_filter_query(
+                filter_key=mm_schemas.ResultData.RESULT_STATUS,
+                filter_values=result_status_list,
+            )
+
+
+
+
+
+
+
