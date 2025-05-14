@@ -202,6 +202,9 @@ class V3IOTSDBConnector(TSDBConnector):
                 default_configurations["aggregation_granularity"] = "1m"
             elif table_name == mm_schemas.V3IOTSDBTables.EVENTS:
                 default_configurations["rate"] = "10/m"
+            elif table_name == mm_schemas.V3IOTSDBTables.APP_RESULTS:
+                default_configurations["aggregates"] = "count"
+                default_configurations["aggregation_granularity"] = "1m"
             logger.info("Creating table in V3IO TSDB", table_name=table_name)
             self.frames_client.create(**default_configurations)
 
@@ -417,6 +420,7 @@ class V3IOTSDBConnector(TSDBConnector):
             mm_schemas.WriterEvent.END_INFER_TIME,
             mm_schemas.WriterEvent.ENDPOINT_ID,
             mm_schemas.WriterEvent.APPLICATION_NAME,
+            mm_schemas.WriterEvent.ENDPOINT_NAME
         ]
 
         if kind == mm_schemas.WriterEventKind.METRIC:
@@ -424,7 +428,7 @@ class V3IOTSDBConnector(TSDBConnector):
             index_cols = index_cols_base + [mm_schemas.MetricData.METRIC_NAME]
         elif kind == mm_schemas.WriterEventKind.RESULT:
             table = self.tables[mm_schemas.V3IOTSDBTables.APP_RESULTS]
-            index_cols = index_cols_base + [mm_schemas.ResultData.RESULT_NAME]
+            index_cols = index_cols_base + [mm_schemas.ResultData.RESULT_NAME, mm_schemas.ResultData.RESULT_STATUS]
         else:
             raise ValueError(f"Invalid {kind = }")
 
