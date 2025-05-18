@@ -14,8 +14,9 @@
 
 import http
 from dataclasses import dataclass
-from typing import Annotated, Optional
 from datetime import datetime
+from typing import Annotated, Optional
+
 import fastapi
 import semver
 from fastapi import APIRouter, Depends, Header, Path, Query
@@ -330,6 +331,7 @@ def set_model_monitoring_credentials(
         replace_creds=replace_creds,
     )
 
+
 @dataclass
 class _FunctionSummariesParams:
     project: str
@@ -340,12 +342,12 @@ class _FunctionSummariesParams:
     labels: Optional[list[str]] = None
     include_stats: bool = True
 
+
 @router.get("/function-summaries")
 async def get_model_monitoring_function_summaries(
     commons: Annotated[_FunctionSummariesParams, Depends(_common_parameters)],
 ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
     pass
-
 
     # await framework.utils.auth.verifier.AuthVerifier().filter_project_resources_by_permissions(
     #     mlrun.common.schemas.AuthorizationResourceTypes.function,
@@ -358,7 +360,6 @@ async def get_model_monitoring_function_summaries(
     #     ),
     #     auth_info,
     # )
-
 
     # func_summary = await run_in_threadpool(
     #     services.api.crud.Functions().get_function,
@@ -379,6 +380,3 @@ async def get_model_monitoring_function_summaries(
     #     )
     # )
     # return func_summary
-
-
-

@@ -19,6 +19,7 @@ import traceback
 import typing
 import uuid
 from asyncio import Semaphore
+from datetime import datetime
 from http import HTTPStatus
 from pathlib import Path
 
@@ -51,7 +52,7 @@ from mlrun.model_monitoring.db._schedules import ModelMonitoringSchedulesFileChi
 from mlrun.model_monitoring.writer import ModelMonitoringWriter
 from mlrun.platforms.iguazio import split_path
 from mlrun.utils import logger
-from datetime import datetime
+
 import framework.api.utils
 import framework.db.session
 import framework.utils.background_tasks
@@ -741,7 +742,9 @@ class MonitoringDeployment:
             project=self.project, profile=tsdb_profile
         ).create_tables()
 
-    def list_model_monitoring_functions(self, labels: typing.Optional[list[str]] = None) -> list:
+    def list_model_monitoring_functions(
+        self, labels: typing.Optional[list[str]] = None
+    ) -> list:
         """Retrieve a list of all the model monitoring functions."""
         model_monitoring_labels_list = [
             f"{mm_constants.ModelMonitoringAppLabel.KEY}={mm_constants.ModelMonitoringAppLabel.VAL}"
@@ -754,10 +757,13 @@ class MonitoringDeployment:
             labels=model_monitoring_labels_list,
         )
 
-    def function_summaries(self, start: datetime,
-                           names: typing.Optional[list[str]] = None,
-                           labels: typing.Optional[list[str]] = None,
-                           include_stats: bool = True) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
+    def function_summaries(
+        self,
+        start: datetime,
+        names: typing.Optional[list[str]] = None,
+        labels: typing.Optional[list[str]] = None,
+        include_stats: bool = True,
+    ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
         """
         Retrieve a list of all the model monitoring functions with their summaries.
         """
@@ -773,15 +779,15 @@ class MonitoringDeployment:
 
         # if include_stats:
 
-    def _convert_to_function_summary(self, function, start: datetime, include_stats: bool = True):
+    def _convert_to_function_summary(
+        self, function, start: datetime, include_stats: bool = True
+    ):
         func = mlrun.common.schemas.model_monitoring.FunctionSummary.from_func(function)
         if include_stats:
             tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
                 project=self.project, secret_provider=self._secret_provider
             )
             # enrich func stats with #detections and #possible_detections
-
-
 
     async def disable_model_monitoring(
         self,

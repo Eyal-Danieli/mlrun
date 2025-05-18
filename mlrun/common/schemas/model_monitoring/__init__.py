@@ -43,6 +43,7 @@ from .constants import (
     WriterEvent,
     WriterEventKind,
 )
+from .functions import FunctionSummary
 from .grafana import (
     GrafanaColumn,
     GrafanaColumnType,
@@ -63,5 +64,3 @@ from .model_endpoints import (
     ModelEndpointSpec,
     ModelEndpointStatus,
 )
-
-from .functions import FunctionSummary

@@ -420,7 +420,7 @@ class V3IOTSDBConnector(TSDBConnector):
             mm_schemas.WriterEvent.END_INFER_TIME,
             mm_schemas.WriterEvent.ENDPOINT_ID,
             mm_schemas.WriterEvent.APPLICATION_NAME,
-            mm_schemas.WriterEvent.ENDPOINT_NAME
+            mm_schemas.WriterEvent.ENDPOINT_NAME,
         ]
 
         if kind == mm_schemas.WriterEventKind.METRIC:
@@ -428,7 +428,10 @@ class V3IOTSDBConnector(TSDBConnector):
             index_cols = index_cols_base + [mm_schemas.MetricData.METRIC_NAME]
         elif kind == mm_schemas.WriterEventKind.RESULT:
             table = self.tables[mm_schemas.V3IOTSDBTables.APP_RESULTS]
-            index_cols = index_cols_base + [mm_schemas.ResultData.RESULT_NAME, mm_schemas.ResultData.RESULT_STATUS]
+            index_cols = index_cols_base + [
+                mm_schemas.ResultData.RESULT_NAME,
+                mm_schemas.ResultData.RESULT_STATUS,
+            ]
         else:
             raise ValueError(f"Invalid {kind = }")
 
@@ -715,8 +718,11 @@ class V3IOTSDBConnector(TSDBConnector):
             raise mlrun.errors.MLRunInvalidArgumentError(
                 f"Invalid 'endpoint_id' filter: must be a string or a list, endpoint_id: {endpoint_id}"
             )
+
     @staticmethod
-    def _generate_filter_query(filter_key: str, filter_values: Union[str, list[str]]) -> Optional[str]:
+    def _generate_filter_query(
+        filter_key: str, filter_values: Union[str, list[str]]
+    ) -> Optional[str]:
         if isinstance(filter_values, str):
             return f"{filter_key}=='{filter_values}'"
         elif isinstance(filter_values, list):
@@ -1200,22 +1206,21 @@ class V3IOTSDBConnector(TSDBConnector):
                 uid, mep.status.last_request
             )
 
-    def read_results_by_status(self,
-       endpoint_ids: Union[str, list[str]] = None,
-       application_names: Union[str, list[str]] = None,
-       start: Optional[datetime] = None,
-       end: Optional[datetime] = None,
-       result_status_list: Optional[list[str]] = None,
-        agg_funcs: Optional[list[str]] = None,):
-
-        """
-
-
-        """
+    def read_results_by_status(
+        self,
+        endpoint_ids: Union[str, list[str]] = None,
+        application_names: Union[str, list[str]] = None,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        result_status_list: Optional[list[str]] = None,
+        agg_funcs: Optional[list[str]] = None,
+    ):
         filter_query = ""
         if endpoint_ids:
-            filter_query = self._generate_filter_query(filter_key=mm_schemas.ApplicationEvent.ENDPOINT_ID,
-                                                       filter_values=endpoint_ids)
+            filter_query = self._generate_filter_query(
+                filter_key=mm_schemas.ApplicationEvent.ENDPOINT_ID,
+                filter_values=endpoint_ids,
+            )
         if application_names:
             filter_query = self._generate_filter_query(
                 filter_key=mm_schemas.ApplicationEvent.APPLICATION_NAME,
@@ -1226,10 +1231,31 @@ class V3IOTSDBConnector(TSDBConnector):
                 filter_key=mm_schemas.ResultData.RESULT_STATUS,
                 filter_values=result_status_list,
             )
+        df = self._get_records(
+            table=mm_schemas.V3IOTSDBTables.APP_RESULTS,
+            start=start,
+            end=end,
+            columns=[
+                mm_schemas.ResultData.RESULT_VALUE,
+            ],
+            filter_query=filter_query,
+            agg_funcs=agg_funcs,
+        )
 
-
-
-
-
-
-
+        return (
+            df[
+                [
+                    mm_schemas.ApplicationEvent.APPLICATION_NAME,
+                    mm_schemas.ResultData.RESULT_STATUS,
+                    mm_schemas.ResultData.RESULT_VALUE,
+                ]
+            ]
+            .groupby(
+                [
+                    mm_schemas.ApplicationEvent.APPLICATION_NAME,
+                    mm_schemas.ResultData.RESULT_STATUS,
+                ],
+                observed=True,
+            )
+            .count()
+        )

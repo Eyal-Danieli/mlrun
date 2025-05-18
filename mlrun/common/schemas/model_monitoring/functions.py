@@ -11,9 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from pydantic.v1 import BaseModel
 from datetime import datetime
 from typing import Optional
+
+from pydantic.v1 import BaseModel
+
 
 class FunctionSummary(BaseModel):
     """
@@ -28,7 +30,6 @@ class FunctionSummary(BaseModel):
     base_period: Optional[float] = None
     stats: Optional[dict] = None
 
-
     @classmethod
     def from_func(cls, func):
         """
@@ -41,5 +42,3 @@ class FunctionSummary(BaseModel):
             updated_time=func.status.updated_time,
             status=func.status.state,
         )
-
-
