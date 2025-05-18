@@ -37,8 +37,8 @@ class FunctionSummary(BaseModel):
         """
         return cls(
             name=func.metadata.name,
-            application_class=func.spec.application_class,
-            start_time=func.status.start_time,
-            updated_time=func.status.updated_time,
+            application_class=func.metadata.name,
+            start_time=func.metadata.updated,
+            updated_time=func.metadata.updated,
             status=func.status.state,
         )

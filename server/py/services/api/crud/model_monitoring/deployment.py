@@ -767,6 +767,7 @@ class MonitoringDeployment:
         """
         Retrieve a list of all the model monitoring functions with their summaries.
         """
+        functino_summaries_list = []
         mm_functions = self.list_model_monitoring_functions(labels=labels)
         print("[EYAL]: mm_functions", mm_functions)
         print("[EYAL]: mm_functions", mm_functions[0].to_dict())
@@ -777,17 +778,80 @@ class MonitoringDeployment:
         if not mm_functions:
             logger.info("No model monitoring applications found")
 
-        # if include_stats:
 
-    def _convert_to_function_summary(
-        self, function, start: datetime, include_stats: bool = True
-    ):
-        func = mlrun.common.schemas.model_monitoring.FunctionSummary.from_func(function)
         if include_stats:
             tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
                 project=self.project, secret_provider=self._secret_provider
             )
             # enrich func stats with #detections and #possible_detections
+            func_stats = tsdb_connector.read_results_by_status(
+                start=start, result_status_list=[mm_constants.ResultStatusApp.detected.value,
+                                                 mm_constants.ResultStatusApp.potential_detection.value]
+            )
+            # try :
+            #     func.stats = {
+            #         mm_constants.ResultStatusApp.detected.name: stats[
+            #             mm_constants.ResultStatusApp.detected.value
+            #         ],
+            #         mm_constants.ResultStatusApp.potential_detection.value: stats[
+            #             mm_constants.ResultStatusApp.potential_detection.value
+            #         ],
+            #     }
+
+        for function in mm_functions:
+            # if function["metadata"]["labels"].get(
+            #     mm_constants.ModelMonitoringAppLabel.KEY
+            # ) == mm_constants.ModelMonitoringAppLabel.VAL:
+            #     functino_summaries_list.append(
+            #         self._convert_to_function_summary(
+            #             function=function, start=start, include_stats=include_stats
+            #         )
+            #     )
+            # functino_summaries_list.append(
+            #     self._convert_to_function_summary(
+            #         function=function, start=start, include_stats=include_stats
+            #     )
+            # )
+            functino_summaries_list.append(mlrun.common.schemas.model_monitoring.FunctionSummary.from_func(function))
+            if include_stats:
+                # enrich func stats with #detections and #possible_detections
+                stats = func_stats.get(function["metadata"]["name"], {})
+                functino_summaries_list[-1].stats = {
+                    mm_constants.ResultStatusApp.detected.name: stats[
+                        mm_constants.ResultStatusApp.detected.value
+                    ],
+                    mm_constants.ResultStatusApp.potential_detection.value: stats[
+                        mm_constants.ResultStatusApp.potential_detection.value
+                    ],
+                }
+
+
+
+        # if include_stats:
+
+    # def _convert_to_function_summary(
+    #     self, function, start: datetime, include_stats: bool = True
+    # ):
+    #     mlrun.common.schemas.model_monitoring.FunctionSummary.from_func(function)
+        # if include_stats:
+        #     tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+        #         project=self.project, secret_provider=self._secret_provider
+        #     )
+        #     # enrich func stats with #detections and #possible_detections
+        #     stats = tsdb_connector.read_results_by_status(
+        #         start=start, result_status_list=[mm_constants.ResultStatusApp.detected.value,
+        #                                          mm_constants.ResultStatusApp.potential_detection.value]
+        #     )
+        #     try :
+        #         func.stats = {
+        #             mm_constants.ResultStatusApp.detected.name: stats[
+        #                 mm_constants.ResultStatusApp.detected.value
+        #             ],
+        #             mm_constants.ResultStatusApp.potential_detection.value: stats[
+        #                 mm_constants.ResultStatusApp.potential_detection.value
+        #             ],
+        #         }
+
 
     async def disable_model_monitoring(
         self,

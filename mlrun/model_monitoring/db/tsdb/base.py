@@ -328,6 +328,17 @@ class TSDBConnector(ABC):
         If an endpoint has not been invoked within the specified time range, it will not appear in the result.
         """
 
+    @abstractmethod
+    def read_results_by_status(
+        self,
+        start: Union[datetime, str] = None,
+        end: Union[datetime, str] = None,
+        endpoint_ids: Union[str, list[str]] = None,
+        application_names: Union[str, list[str]] = None,
+        result_status_list: Optional[list[int]] = None,
+    ):
+        pass
+
     async def add_basic_metrics(
         self,
         model_endpoint_objects: list[mlrun.common.schemas.ModelEndpoint],
@@ -447,6 +458,8 @@ class TSDBConnector(ABC):
                 project=project, app=app_name, name=name
             )
             try:
+                print("[EYAL]: sub df columns: ", sub_df.columns)
+                print("[EYAL]: sub df values: ", sub_df.values)
                 metrics_values.append(
                     mm_schemas.ModelEndpointMonitoringResultValues(
                         full_name=full_name,

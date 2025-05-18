@@ -202,9 +202,9 @@ class V3IOTSDBConnector(TSDBConnector):
                 default_configurations["aggregation_granularity"] = "1m"
             elif table_name == mm_schemas.V3IOTSDBTables.EVENTS:
                 default_configurations["rate"] = "10/m"
-            elif table_name == mm_schemas.V3IOTSDBTables.APP_RESULTS:
-                default_configurations["aggregates"] = "count"
-                default_configurations["aggregation_granularity"] = "1m"
+            # elif table_name == mm_schemas.V3IOTSDBTables.APP_RESULTS:
+            #     default_configurations["aggregates"] = "count"
+            #     default_configurations["aggregation_granularity"] = "1m"
             logger.info("Creating table in V3IO TSDB", table_name=table_name)
             self.frames_client.create(**default_configurations)
 
@@ -430,7 +430,7 @@ class V3IOTSDBConnector(TSDBConnector):
             table = self.tables[mm_schemas.V3IOTSDBTables.APP_RESULTS]
             index_cols = index_cols_base + [
                 mm_schemas.ResultData.RESULT_NAME,
-                mm_schemas.ResultData.RESULT_STATUS,
+                # mm_schemas.ResultData.RESULT_STATUS,
             ]
         else:
             raise ValueError(f"Invalid {kind = }")
@@ -1208,13 +1208,15 @@ class V3IOTSDBConnector(TSDBConnector):
 
     def read_results_by_status(
         self,
+        start: Union[datetime, str] = None,
+        end: Union[datetime, str] = None,
         endpoint_ids: Union[str, list[str]] = None,
         application_names: Union[str, list[str]] = None,
-        start: Optional[datetime] = None,
-        end: Optional[datetime] = None,
-        result_status_list: Optional[list[str]] = None,
-        agg_funcs: Optional[list[str]] = None,
+
+        result_status_list: Optional[list[int]] = None,
     ):
+        start = start or (mlrun.utils.datetime_now() - timedelta(hours=24))
+        start, end = self._get_start_end(start, end)
         print("[EYAL]: now start read results by status!!!!!!")
         filter_query = ""
         if endpoint_ids:
@@ -1246,12 +1248,15 @@ class V3IOTSDBConnector(TSDBConnector):
             filter_query=filter_query,
         )
 
-        print("[EYAL]: df columns are : ", df.columns)
-        print("[EYAL]: df values are : ", df.values)
-
         if df.empty:
             return df
         else:
+
+            # convert application name to lower case
+            df[mm_schemas.ApplicationEvent.APPLICATION_NAME] = df[mm_schemas.ApplicationEvent.APPLICATION_NAME].str.lower()
+
+            # convert result status to numerical values
+            # df[mm_schemas.ResultData.RESULT_STATUS] = df[mm_schemas.ResultData.RESULT_STATUS].astype(str).astype(int)
             return (
             df[
                 [
