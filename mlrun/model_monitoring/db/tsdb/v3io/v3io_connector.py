@@ -1227,6 +1227,10 @@ class V3IOTSDBConnector(TSDBConnector):
                 filter_values=application_names,
             )
         if result_status_list:
+            # Ensure that the result stats values are of type string, as they are defined as labels
+            result_status_list = [
+                str(status) for status in result_status_list if status is not None
+            ]
             filter_query = self._generate_filter_query(
                 filter_key=mm_schemas.ResultData.RESULT_STATUS,
                 filter_values=result_status_list,
@@ -1239,7 +1243,6 @@ class V3IOTSDBConnector(TSDBConnector):
                 mm_schemas.ResultData.RESULT_VALUE,
             ],
             filter_query=filter_query,
-            agg_funcs=agg_funcs,
         )
 
         return (
