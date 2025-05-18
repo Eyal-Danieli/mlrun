@@ -35,6 +35,7 @@ class FunctionSummary(BaseModel):
         """
         Create a FunctionSummary instance from a function object.
         """
+
         return cls(
             name=func.metadata.name,
             application_class=func.metadata.name,
@@ -42,3 +43,6 @@ class FunctionSummary(BaseModel):
             updated_time=func.metadata.updated,
             status=func.status.state,
         )
+
+
+

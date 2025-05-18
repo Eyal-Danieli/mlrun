@@ -1258,7 +1258,7 @@ class V3IOTSDBConnector(TSDBConnector):
 
             # convert result status to numerical values
             # df[mm_schemas.ResultData.RESULT_STATUS] = df[mm_schemas.ResultData.RESULT_STATUS].astype(str).astype(int)
-            return (
+            df = (
             df[
                 [
                     mm_schemas.ApplicationEvent.APPLICATION_NAME,
@@ -1275,3 +1275,5 @@ class V3IOTSDBConnector(TSDBConnector):
             )
             .count()
         )
+
+            return df[mm_schemas.ResultData.RESULT_VALUE].to_dict()

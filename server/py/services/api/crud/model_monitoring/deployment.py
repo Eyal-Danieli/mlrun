@@ -767,6 +767,9 @@ class MonitoringDeployment:
         """
         Retrieve a list of all the model monitoring functions with their summaries.
         """
+
+
+
         functino_summaries_list = []
         mm_functions = self.list_model_monitoring_functions(labels=labels)
         print("[EYAL]: mm_functions", mm_functions)
@@ -778,13 +781,13 @@ class MonitoringDeployment:
         if not mm_functions:
             logger.info("No model monitoring applications found")
 
-
+        detection_stats_dict = {}
         if include_stats:
             tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
                 project=self.project, secret_provider=self._secret_provider
             )
             # enrich func stats with #detections and #possible_detections
-            func_stats = tsdb_connector.read_results_by_status(
+            detection_stats_dict = tsdb_connector.read_results_by_status(
                 start=start, result_status_list=[mm_constants.ResultStatusApp.detected.value,
                                                  mm_constants.ResultStatusApp.potential_detection.value]
             )
@@ -812,18 +815,15 @@ class MonitoringDeployment:
             #         function=function, start=start, include_stats=include_stats
             #     )
             # )
-            functino_summaries_list.append(mlrun.common.schemas.model_monitoring.FunctionSummary.from_func(function))
-            if include_stats:
+           functino_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_func(function)
+           if detection_stats_dict:
                 # enrich func stats with #detections and #possible_detections
-                stats = func_stats.get(function["metadata"]["name"], {})
-                functino_summaries_list[-1].stats = {
-                    mm_constants.ResultStatusApp.detected.name: stats[
-                        mm_constants.ResultStatusApp.detected.value
-                    ],
-                    mm_constants.ResultStatusApp.potential_detection.value: stats[
-                        mm_constants.ResultStatusApp.potential_detection.value
-                    ],
+                functino_summary.stats = {
+                    mm_constants.ResultStatusApp.detected.name: detection_stats_dict.get((functino_summary.name, mm_constants.ResultStatusApp.detected.value), 0),
+                    mm_constants.ResultStatusApp.potential_detection.name: detection_stats_dict.get((functino_summary.name, mm_constants.ResultStatusApp.potential_detection.value), 0),
                 }
+           functino_summaries_list.append(functino_summary)
+        return functino_summaries_list
 
 
 

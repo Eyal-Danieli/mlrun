@@ -23,7 +23,8 @@ from fastapi import APIRouter, Depends, Header, Path, Query
 from sqlalchemy.orm import Session
 
 import mlrun.common.schemas
-from mlrun.utils import logger
+import services.api.crud.model_monitoring.deployment
+from mlrun.utils import logger, run_in_threadpool
 
 import framework.api.utils
 import framework.utils.auth.verifier
@@ -347,7 +348,7 @@ class _FunctionSummariesParams:
 async def get_model_monitoring_function_summaries(
     commons: Annotated[_FunctionSummariesParams, Depends(_common_parameters)],
 ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
-    pass
+    # pass
 
     # await framework.utils.auth.verifier.AuthVerifier().filter_project_resources_by_permissions(
     #     mlrun.common.schemas.AuthorizationResourceTypes.function,
@@ -360,7 +361,16 @@ async def get_model_monitoring_function_summaries(
     #     ),
     #     auth_info,
     # )
-
+    return MonitoringDeployment(
+        project=commons.project,
+        auth_info=commons.auth_info,
+        db_session=commons.db_session,
+    ).function_summaries(
+        start=commons.start,
+        names=commons.names,
+        labels=commons.labels,
+        include_stats=commons.include_stats,
+    )
     # func_summary = await run_in_threadpool(
     #     services.api.crud.Functions().get_function,
     #     db_session,
