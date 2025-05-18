@@ -1215,6 +1215,7 @@ class V3IOTSDBConnector(TSDBConnector):
         result_status_list: Optional[list[str]] = None,
         agg_funcs: Optional[list[str]] = None,
     ):
+        print("[EYAL]: now start read results by status!!!!!!")
         filter_query = ""
         if endpoint_ids:
             filter_query = self._generate_filter_query(
