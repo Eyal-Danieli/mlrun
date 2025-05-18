@@ -1216,7 +1216,7 @@ class V3IOTSDBConnector(TSDBConnector):
         result_status_list: Optional[list[int]] = None,
     ):
         start = start or (mlrun.utils.datetime_now() - timedelta(hours=24))
-        start, end = self._get_start_end(start, end)
+        end = end or mlrun.utils.datetime_now()
         print("[EYAL]: now start read results by status!!!!!!")
         filter_query = ""
         if endpoint_ids:
