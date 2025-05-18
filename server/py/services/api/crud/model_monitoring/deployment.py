@@ -37,6 +37,7 @@ import mlrun.common.constants as mlrun_constants
 import mlrun.common.model_monitoring.helpers
 import mlrun.common.schemas
 import mlrun.common.schemas.model_monitoring.constants as mm_constants
+import mlrun.common.formatters
 import mlrun.datastore.datastore_profile
 import mlrun.model_monitoring
 import mlrun.model_monitoring.api
@@ -743,9 +744,9 @@ class MonitoringDeployment:
         ).create_tables()
 
     def list_model_monitoring_functions(
-        self, labels: typing.Optional[list[str]] = None
-    ) -> list:
-        """Retrieve a list of all the model monitoring functions."""
+        self, labels: typing.Optional[list[str]] = None, format_: str = mlrun.common.formatters.FunctionFormat.full
+    ) -> list[dict]:
+        """Retrieve a list of dictionaries, representing all the model monitoring functions."""
         model_monitoring_labels_list = [
             f"{mm_constants.ModelMonitoringAppLabel.KEY}={mm_constants.ModelMonitoringAppLabel.VAL}"
         ]
@@ -755,11 +756,14 @@ class MonitoringDeployment:
             db_session=self.db_session,
             project=self.project,
             labels=model_monitoring_labels_list,
+            format_=format_,
+            tag="*"
         )
 
     def function_summaries(
         self,
         start: datetime,
+        end: datetime,
         names: typing.Optional[list[str]] = None,
         labels: typing.Optional[list[str]] = None,
         include_stats: bool = True,
@@ -771,9 +775,9 @@ class MonitoringDeployment:
 
 
         functino_summaries_list = []
-        mm_functions = self.list_model_monitoring_functions(labels=labels)
+        mm_functions = self.list_model_monitoring_functions(labels=labels, format_=mlrun.common.formatters.FunctionFormat.minimal)
         print("[EYAL]: mm_functions", mm_functions)
-        print("[EYAL]: mm_functions", mm_functions[0].to_dict())
+        # print("[EYAL]: mm_functions", mm_functions[0].to_dict())
         if names:
             mm_functions = [
                 fn for fn in mm_functions if fn["metadata"]["name"] in names
@@ -788,34 +792,15 @@ class MonitoringDeployment:
             )
             # enrich func stats with #detections and #possible_detections
             detection_stats_dict = tsdb_connector.read_results_by_status(
-                start=start, result_status_list=[mm_constants.ResultStatusApp.detected.value,
+                start=start,
+                end=end,
+                result_status_list=[mm_constants.ResultStatusApp.detected.value,
                                                  mm_constants.ResultStatusApp.potential_detection.value]
             )
-            # try :
-            #     func.stats = {
-            #         mm_constants.ResultStatusApp.detected.name: stats[
-            #             mm_constants.ResultStatusApp.detected.value
-            #         ],
-            #         mm_constants.ResultStatusApp.potential_detection.value: stats[
-            #             mm_constants.ResultStatusApp.potential_detection.value
-            #         ],
-            #     }
 
         for function in mm_functions:
-            # if function["metadata"]["labels"].get(
-            #     mm_constants.ModelMonitoringAppLabel.KEY
-            # ) == mm_constants.ModelMonitoringAppLabel.VAL:
-            #     functino_summaries_list.append(
-            #         self._convert_to_function_summary(
-            #             function=function, start=start, include_stats=include_stats
-            #         )
-            #     )
-            # functino_summaries_list.append(
-            #     self._convert_to_function_summary(
-            #         function=function, start=start, include_stats=include_stats
-            #     )
-            # )
-           functino_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_func(function)
+
+           functino_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_dict(function)
            if detection_stats_dict:
                 # enrich func stats with #detections and #possible_detections
                 functino_summary.stats = {

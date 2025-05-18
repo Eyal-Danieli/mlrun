@@ -14,7 +14,7 @@
 
 import http
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Optional
 
 import fastapi
@@ -333,20 +333,87 @@ def set_model_monitoring_credentials(
     )
 
 
+
+
+
 @dataclass
 class _FunctionSummariesParams:
     project: str
     auth_info: mlrun.common.schemas.AuthInfo
     db_session: Session
     start: datetime
+    end: datetime
     names: Optional[list[str]] = None
     labels: Optional[list[str]] = None
     include_stats: bool = True
 
+async def _common_function_parameters(
+    project: Annotated[
+        str,
+        Path(pattern=mlrun.common.schemas.model_monitoring.constants.PROJECT_PATTERN),
+    ],
+    auth_info: Annotated[
+        mlrun.common.schemas.AuthInfo, Depends(deps.authenticate_request)
+    ],
+    db_session: Annotated[Session, Depends(deps.get_db_session)],
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+    names: Optional[list[str]] = None,
+    labels: Optional[list[str]] = None,
+    include_stats: bool = True,
+) -> _FunctionSummariesParams:
+    """
+    Verify authorization and return common parameters.
+
+    :param project:         Project name.
+    :param auth_info:       The auth info of the request.
+    :param db_session:      A session that manages the current dialog with the database.
+    :param client_version:  The client version.
+    :returns:          A `_CommonParameters` object that contains the input data.
+    """
+    # await framework.utils.auth.verifier.AuthVerifier().filter_project_resources_by_permissions(
+    #     mlrun.common.schemas.AuthorizationResourceTypes.function,
+    #     _functions,
+    #     lambda function: (
+    #         function.get("metadata", {}).get(
+    #             "project", mlrun.mlconf.default_project
+    #         ),
+    #         function["metadata"]["name"],
+    #     ),
+    #     auth_info,
+    # )
+
+    if start is None and end is None:
+        end = mlrun.utils.helpers.datetime_now()
+        start = end - timedelta(days=1)
+    elif start is not None and end is not None:
+        if start.tzinfo is None or end.tzinfo is None:
+            raise mlrun.errors.MLRunInvalidArgumentTypeError(
+                "Custom start and end times must contain the timezone."
+            )
+        if start > end:
+            raise mlrun.errors.MLRunInvalidArgumentError(
+                "The start time must precede the end time."
+            )
+    else:
+        raise mlrun.errors.MLRunInvalidArgumentError(
+            "Provided only one of start time, end time. Please provide both or neither."
+        )
+    return _FunctionSummariesParams(
+        project=project,
+        auth_info=auth_info,
+        db_session=db_session,
+        start=start,
+        end=end,
+        names=names,
+        labels=labels,
+        include_stats=include_stats,
+    )
+
 
 @router.get("/function-summaries")
 async def get_model_monitoring_function_summaries(
-    commons: Annotated[_FunctionSummariesParams, Depends(_common_parameters)],
+    commons: Annotated[_FunctionSummariesParams, Depends(_common_function_parameters)],
 ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
     # pass
 
@@ -367,6 +434,7 @@ async def get_model_monitoring_function_summaries(
         db_session=commons.db_session,
     ).function_summaries(
         start=commons.start,
+        end=commons.end,
         names=commons.names,
         labels=commons.labels,
         include_stats=commons.include_stats,

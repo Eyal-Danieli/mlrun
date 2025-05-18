@@ -44,5 +44,20 @@ class FunctionSummary(BaseModel):
             status=func.status.state,
         )
 
+    @classmethod
+    def from_dict(cls, func_dict: dict):
+        """
+        Create a FunctionSummary instance from a dictionary.
+        """
+        return cls(
+            name=func_dict['metadata']['name'],
+            application_class=func_dict['spec']['graph']['steps']['PushToMonitoringWriter']['after'][0],
+            start_time=func_dict['metadata'].get('updated'),
+            updated_time=func_dict['metadata'].get('updated'),
+            status=func_dict['status'].get('state'),
+            # base_period=data.get("base_period"),
+            # stats=data.get("stats"),
+        )
+
 
 
