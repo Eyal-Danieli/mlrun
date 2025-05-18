@@ -1245,7 +1245,13 @@ class V3IOTSDBConnector(TSDBConnector):
             filter_query=filter_query,
         )
 
-        return (
+        print("[EYAL]: df columns are : ", df.columns)
+        print("[EYAL]: df values are : ", df.values)
+
+        if df.empty:
+            return df
+        else:
+            return (
             df[
                 [
                     mm_schemas.ApplicationEvent.APPLICATION_NAME,
