@@ -1244,6 +1244,7 @@ class V3IOTSDBConnector(TSDBConnector):
             end=end,
             columns=[
                 mm_schemas.ResultData.RESULT_VALUE,
+                mm_schemas.ResultData.RESULT_STATUS,
             ],
             filter_query=filter_query,
         )
