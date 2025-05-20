@@ -4115,8 +4115,8 @@ class HTTPRunDB(RunDBInterface):
     def get_monitoring_function_summaries(
         self,
         project: str,
-        start: Optional[datetime.datetime] = None,
-        end: Optional[datetime.datetime] = None,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
         names: Optional[Union[list[str], str]] = None,
         labels: Optional[Union[str, dict[str, Optional[str]], list[str]]] = None,
         include_stats: bool = False,
