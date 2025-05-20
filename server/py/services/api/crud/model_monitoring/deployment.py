@@ -19,7 +19,7 @@ import traceback
 import typing
 import uuid
 from asyncio import Semaphore
-from datetime import datetime
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from pathlib import Path
 
@@ -474,8 +474,7 @@ class MonitoringDeployment:
                 filename=_STREAM_PROCESSING_FUNCTION_PATH,
                 kind=mlrun.run.RuntimeKinds.serving,
                 image=stream_image,
-                # The label is used to identify the stream function in Prometheus
-                labels={"type": mm_constants.MonitoringFunctionNames.STREAM},
+                labels={mm_constants.ModelMonitoringInfraLabel.KEY: mm_constants.ModelMonitoringInfraLabel.VAL},
             ),
         )
         function.set_db_connection(
@@ -533,6 +532,7 @@ class MonitoringDeployment:
             kind=mlrun.run.RuntimeKinds.nuclio,
             image=image,
             handler="handler",
+            labels={mm_constants.ModelMonitoringInfraLabel.KEY: mm_constants.ModelMonitoringInfraLabel.VAL},
         )
         function.set_db_connection(
             framework.api.utils.get_run_db_instance(self.db_session)
@@ -617,6 +617,7 @@ class MonitoringDeployment:
                 filename=_MONITORING_WRITER_FUNCTION_PATH,
                 kind=mlrun.run.RuntimeKinds.serving,
                 image=writer_image,
+                labels={mm_constants.ModelMonitoringInfraLabel.KEY: mm_constants.ModelMonitoringInfraLabel.VAL},
             ),
         )
         function.set_db_connection(
@@ -773,16 +774,18 @@ class MonitoringDeployment:
 
     def function_summaries(
         self,
-        start: datetime,
-        end: datetime,
+        start: typing.Optional[datetime] = None,
+        end: typing.Optional[datetime] = None,
         names: typing.Optional[list[str]] = None,
         labels: typing.Optional[list[str]] = None,
         include_stats: bool = True,
     ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
         """
-        Retrieve a list of all the model monitoring functions with their summaries.
-        :param start:            The start time of the statistics, relevant only if include_stats is True.
-        :param end:              The end time of the function.
+        Retrieve a list of all the model monitoring functions with their summaries. Note that the response includes
+        both monitoring application real time functions and monitoring infrastructure functions.
+        :param start:            The start time of TSDB detections and possible detection results. Applicable
+                                 only when `include_status` is set to True.
+        :param end:              The end time of the function. Applicable only when `include_status` is set to True.
         """
 
 
@@ -814,6 +817,9 @@ class MonitoringDeployment:
 
         detection_stats_dict = {}
         if include_stats:
+            start = start or (mlrun.utils.datetime_now() - timedelta(hours=24))
+            end = end or mlrun.utils.datetime_now()
+
             print("[EYAL]: yes include stats!")
             tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
                 project=self.project, secret_provider=self._secret_provider
