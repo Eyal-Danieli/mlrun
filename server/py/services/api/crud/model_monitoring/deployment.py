@@ -744,18 +744,29 @@ class MonitoringDeployment:
         ).create_tables()
 
     def list_model_monitoring_functions(
-        self, labels: typing.Optional[list[str]] = None, format_: str = mlrun.common.formatters.FunctionFormat.full
+        self,
+            labels: typing.Optional[list[str]] = None,
+            format_: str = mlrun.common.formatters.FunctionFormat.full,
+            infra_only: bool = False
     ) -> list[dict]:
         """Retrieve a list of dictionaries, representing all the model monitoring functions."""
-        model_monitoring_labels_list = [
-            f"{mm_constants.ModelMonitoringAppLabel.KEY}={mm_constants.ModelMonitoringAppLabel.VAL}"
-        ]
-        if labels:
-            model_monitoring_labels_list += labels
+
+        labels = labels or []
+        if infra_only:
+            # Model monitoring infrastructure functions
+            labels.append(
+                f"{mm_constants.ModelMonitoringInfraLabel.KEY}={mm_constants.ModelMonitoringInfraLabel.VAL}"
+            )
+        else:
+            # Model monitoring applications
+            labels.append(
+                f"{mm_constants.ModelMonitoringAppLabel.KEY}={mm_constants.ModelMonitoringAppLabel.VAL}"
+            )
+
         return services.api.crud.Functions().list_functions(
             db_session=self.db_session,
             project=self.project,
-            labels=model_monitoring_labels_list,
+            labels=labels,
             format_=format_,
             tag="*"
         )
@@ -770,10 +781,26 @@ class MonitoringDeployment:
     ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
         """
         Retrieve a list of all the model monitoring functions with their summaries.
+        :param start:            The start time of the statistics, relevant only if include_stats is True.
+        :param end:              The end time of the function.
         """
 
 
         functino_summaries_list = []
+        base_period = None
+
+        # Enrich response with infra functions
+        infra_mm_functions = self.list_model_monitoring_functions(format_=mlrun.common.formatters.FunctionFormat.minimal,
+                                                                  infra_only=True)
+        print("[EYAL]: infra functions: ", infra_mm_functions)
+        for function in infra_mm_functions:
+            function_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_dict(function)
+            functino_summaries_list.append(function_summary)
+            if function["metadata"]["name"] == mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER:
+                base_period = self._get_base_period(controller_func=function)
+
+
+        # Enrich response with monitoring applications
         mm_functions = self.list_model_monitoring_functions(labels=labels, format_=mlrun.common.formatters.FunctionFormat.minimal)
         print("[EYAL]: mm_functions", mm_functions)
         # print("[EYAL]: mm_functions", mm_functions[0].to_dict())
@@ -783,6 +810,7 @@ class MonitoringDeployment:
             ]
         if not mm_functions:
             logger.info("No model monitoring applications found")
+            return functino_summaries_list
 
         detection_stats_dict = {}
         if include_stats:
@@ -799,10 +827,8 @@ class MonitoringDeployment:
             )
             print("[EYAL]: detection_stats_dict", detection_stats_dict)
         print("[EYAL]: going to add base_period")
-        base_period = self._get_base_period()
 
         for function in mm_functions:
-
            functino_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_dict(function)
            if detection_stats_dict:
                 # enrich func stats with #detections and #possible_detections
@@ -815,22 +841,12 @@ class MonitoringDeployment:
         return functino_summaries_list
 
 
-    def _get_base_period(self)-> typing.Optional[float]:
+    def _get_base_period(self, controller_func)-> typing.Optional[float]:
         base_period = None
-        controller_func = services.api.crud.Functions().get_function(
-            db_session=self.db_session,
-            project=self.project,
-            name=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER,
-            tag="latest",
-        )
 
-        if not controller_func:
-            logger.warn("No controller function found, you might need to re-enable model monitoring")
-        else:
-            print("[EYAL]: controller_func", controller_func)
-            for env in controller_func['spec']['env']:
-                if env['name'] == 'batch_intervals_dict':
-                    base_period = json.loads(env['value'])['minutes']
+        for env in controller_func['spec']['env']:
+            if env['name'] == 'batch_intervals_dict':
+                base_period = json.loads(env['value'])['minutes']
         return base_period
 
         # if include_stats:
