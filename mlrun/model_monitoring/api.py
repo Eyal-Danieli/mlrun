@@ -614,7 +614,6 @@ def _create_model_monitoring_function_base(
 
     app_step.__class__ = mlrun.serving.MonitoringApplicationStep
 
-
     app_step.error_handler(
         class_name="mlrun.model_monitoring.applications._application_steps._ApplicationErrorHandler",
         name="ApplicationErrorHandler",

@@ -445,6 +445,7 @@ class PredictionsQueryConstants:
 class SpecialApps:
     MLRUN_INFRA = "mlrun-infra"
 
+
 class ModelMonitoringLabels:
     MLRUN_MODEL_MONITORING_INFRA = "mlrun-model-monitoring-infra"
 

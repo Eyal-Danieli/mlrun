@@ -21,6 +21,7 @@ class FunctionSummary(BaseModel):
     """
     Function summary model.
     """
+
     type: str
     name: str
     application_class: str
@@ -31,7 +32,13 @@ class FunctionSummary(BaseModel):
     stats: Optional[dict] = None
 
     @classmethod
-    def from_func(cls, func, func_type="application", base_period: Optional[float] = None, stats: Optional[dict] = None):
+    def from_func(
+        cls,
+        func,
+        func_type="application",
+        base_period: Optional[float] = None,
+        stats: Optional[dict] = None,
+    ):
         """
         Create a FunctionSummary instance from a function object.
         """
@@ -39,7 +46,11 @@ class FunctionSummary(BaseModel):
         return cls(
             type=func_type,
             name=func.metadata.name,
-            application_class=func.spec.graph.steps.get('PushToMonitoringWriter', {}).get('after', [None])[0] if func_type == "application" else "",
+            application_class=func.spec.graph.steps.get(
+                "PushToMonitoringWriter", {}
+            ).get("after", [None])[0]
+            if func_type == "application"
+            else "",
             start_time=func.metadata.updated,
             updated_time=func.metadata.updated,
             status=func.status.state,
@@ -48,21 +59,28 @@ class FunctionSummary(BaseModel):
         )
 
     @classmethod
-    def from_dict(cls, func_dict: dict, func_type="application", base_period: Optional[float] = None, stats: Optional[dict] = None):
+    def from_dict(
+        cls,
+        func_dict: dict,
+        func_type="application",
+        base_period: Optional[float] = None,
+        stats: Optional[dict] = None,
+    ):
         """
         Create a FunctionSummary instance from a dictionary.
         """
 
         return cls(
             type=func_type,
-            name=func_dict['metadata']['name'],
-            application_class="" if func_type != "application" else func_dict['spec']['graph']['steps']['PushToMonitoringWriter']['after'][0],
-            start_time=func_dict['metadata'].get('updated'),
-            updated_time=func_dict['metadata'].get('updated'),
-            status=func_dict['status'].get('state'),
+            name=func_dict["metadata"]["name"],
+            application_class=""
+            if func_type != "application"
+            else func_dict["spec"]["graph"]["steps"]["PushToMonitoringWriter"]["after"][
+                0
+            ],
+            start_time=func_dict["metadata"].get("updated"),
+            updated_time=func_dict["metadata"].get("updated"),
+            status=func_dict["status"].get("state"),
             base_period=base_period,
             stats=stats,
         )
-
-
-

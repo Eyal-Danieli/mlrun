@@ -1212,7 +1212,6 @@ class V3IOTSDBConnector(TSDBConnector):
         end: Union[datetime, str] = None,
         endpoint_ids: Union[str, list[str]] = None,
         application_names: Union[str, list[str]] = None,
-
         result_status_list: Optional[list[int]] = None,
     ):
         start = start or (mlrun.utils.datetime_now() - timedelta(hours=24))
@@ -1252,26 +1251,28 @@ class V3IOTSDBConnector(TSDBConnector):
             return {}
         else:
             # convert application name to lower case
-            df[mm_schemas.ApplicationEvent.APPLICATION_NAME] = df[mm_schemas.ApplicationEvent.APPLICATION_NAME].str.lower()
+            df[mm_schemas.ApplicationEvent.APPLICATION_NAME] = df[
+                mm_schemas.ApplicationEvent.APPLICATION_NAME
+            ].str.lower()
 
             # convert result status to numerical values
             # df[mm_schemas.ResultData.RESULT_STATUS] = df[mm_schemas.ResultData.RESULT_STATUS].astype(str).astype(int)
             df = (
-            df[
-                [
-                    mm_schemas.ApplicationEvent.APPLICATION_NAME,
-                    mm_schemas.ResultData.RESULT_STATUS,
-                    mm_schemas.ResultData.RESULT_VALUE,
+                df[
+                    [
+                        mm_schemas.ApplicationEvent.APPLICATION_NAME,
+                        mm_schemas.ResultData.RESULT_STATUS,
+                        mm_schemas.ResultData.RESULT_VALUE,
+                    ]
                 ]
-            ]
-            .groupby(
-                [
-                    mm_schemas.ApplicationEvent.APPLICATION_NAME,
-                    mm_schemas.ResultData.RESULT_STATUS,
-                ],
-                observed=True,
+                .groupby(
+                    [
+                        mm_schemas.ApplicationEvent.APPLICATION_NAME,
+                        mm_schemas.ResultData.RESULT_STATUS,
+                    ],
+                    observed=True,
+                )
+                .count()
             )
-            .count()
-        )
 
             return df[mm_schemas.ResultData.RESULT_VALUE].to_dict()

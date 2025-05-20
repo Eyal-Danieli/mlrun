@@ -23,8 +23,7 @@ from fastapi import APIRouter, Depends, Header, Path, Query
 from sqlalchemy.orm import Session
 
 import mlrun.common.schemas
-import services.api.crud.model_monitoring.deployment
-from mlrun.utils import logger, run_in_threadpool
+from mlrun.utils import logger
 
 import framework.api.utils
 import framework.utils.auth.verifier
@@ -333,9 +332,6 @@ def set_model_monitoring_credentials(
     )
 
 
-
-
-
 @dataclass
 class _FunctionSummariesParams:
     project: str
@@ -346,6 +342,7 @@ class _FunctionSummariesParams:
     names: Optional[list[str]] = None
     labels: Optional[list[str]] = None
     include_stats: bool = True
+
 
 async def _common_function_parameters(
     project: Annotated[

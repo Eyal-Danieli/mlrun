@@ -34,10 +34,10 @@ from fastapi import BackgroundTasks
 from fastapi.concurrency import run_in_threadpool
 
 import mlrun.common.constants as mlrun_constants
+import mlrun.common.formatters
 import mlrun.common.model_monitoring.helpers
 import mlrun.common.schemas
 import mlrun.common.schemas.model_monitoring.constants as mm_constants
-import mlrun.common.formatters
 import mlrun.datastore.datastore_profile
 import mlrun.model_monitoring
 import mlrun.model_monitoring.api
@@ -474,7 +474,9 @@ class MonitoringDeployment:
                 filename=_STREAM_PROCESSING_FUNCTION_PATH,
                 kind=mlrun.run.RuntimeKinds.serving,
                 image=stream_image,
-                labels={mm_constants.ModelMonitoringInfraLabel.KEY: mm_constants.ModelMonitoringInfraLabel.VAL},
+                labels={
+                    mm_constants.ModelMonitoringInfraLabel.KEY: mm_constants.ModelMonitoringInfraLabel.VAL
+                },
             ),
         )
         function.set_db_connection(
@@ -532,7 +534,9 @@ class MonitoringDeployment:
             kind=mlrun.run.RuntimeKinds.nuclio,
             image=image,
             handler="handler",
-            labels={mm_constants.ModelMonitoringInfraLabel.KEY: mm_constants.ModelMonitoringInfraLabel.VAL},
+            labels={
+                mm_constants.ModelMonitoringInfraLabel.KEY: mm_constants.ModelMonitoringInfraLabel.VAL
+            },
         )
         function.set_db_connection(
             framework.api.utils.get_run_db_instance(self.db_session)
@@ -617,7 +621,9 @@ class MonitoringDeployment:
                 filename=_MONITORING_WRITER_FUNCTION_PATH,
                 kind=mlrun.run.RuntimeKinds.serving,
                 image=writer_image,
-                labels={mm_constants.ModelMonitoringInfraLabel.KEY: mm_constants.ModelMonitoringInfraLabel.VAL},
+                labels={
+                    mm_constants.ModelMonitoringInfraLabel.KEY: mm_constants.ModelMonitoringInfraLabel.VAL
+                },
             ),
         )
         function.set_db_connection(
@@ -746,9 +752,9 @@ class MonitoringDeployment:
 
     def list_model_monitoring_functions(
         self,
-            labels: typing.Optional[list[str]] = None,
-            format_: str = mlrun.common.formatters.FunctionFormat.full,
-            infra_only: bool = False
+        labels: typing.Optional[list[str]] = None,
+        format_: str = mlrun.common.formatters.FunctionFormat.full,
+        infra_only: bool = False,
     ) -> list[dict]:
         """Retrieve a list of dictionaries, representing all the model monitoring functions."""
 
@@ -769,7 +775,7 @@ class MonitoringDeployment:
             project=self.project,
             labels=labels,
             format_=format_,
-            tag="*"
+            tag="*",
         )
 
     def function_summaries(
@@ -788,23 +794,31 @@ class MonitoringDeployment:
         :param end:              The end time of the function. Applicable only when `include_status` is set to True.
         """
 
-
         functino_summaries_list = []
         base_period = None
 
         # Enrich response with infra functions
-        infra_mm_functions = self.list_model_monitoring_functions(format_=mlrun.common.formatters.FunctionFormat.minimal,
-                                                                  infra_only=True)
+        infra_mm_functions = self.list_model_monitoring_functions(
+            format_=mlrun.common.formatters.FunctionFormat.minimal, infra_only=True
+        )
         print("[EYAL]: infra functions: ", infra_mm_functions)
         for function in infra_mm_functions:
-            function_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_dict(function)
+            function_summary = (
+                mlrun.common.schemas.model_monitoring.FunctionSummary.from_dict(
+                    function, func_type="infra"
+                )
+            )
             functino_summaries_list.append(function_summary)
-            if function["metadata"]["name"] == mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER:
+            if (
+                function["metadata"]["name"]
+                == mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER
+            ):
                 base_period = self._get_base_period(controller_func=function)
 
-
         # Enrich response with monitoring applications
-        mm_functions = self.list_model_monitoring_functions(labels=labels, format_=mlrun.common.formatters.FunctionFormat.minimal)
+        mm_functions = self.list_model_monitoring_functions(
+            labels=labels, format_=mlrun.common.formatters.FunctionFormat.minimal
+        )
         print("[EYAL]: mm_functions", mm_functions)
         # print("[EYAL]: mm_functions", mm_functions[0].to_dict())
         if names:
@@ -828,31 +842,47 @@ class MonitoringDeployment:
             detection_stats_dict = tsdb_connector.read_results_by_status(
                 start=start,
                 end=end,
-                result_status_list=[mm_constants.ResultStatusApp.detected.value,
-                                                 mm_constants.ResultStatusApp.potential_detection.value]
+                result_status_list=[
+                    mm_constants.ResultStatusApp.detected.value,
+                    mm_constants.ResultStatusApp.potential_detection.value,
+                ],
             )
             print("[EYAL]: detection_stats_dict", detection_stats_dict)
         print("[EYAL]: going to add base_period")
 
         for function in mm_functions:
-           functino_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_dict(function)
-           if detection_stats_dict:
+            function_summary = (
+                mlrun.common.schemas.model_monitoring.FunctionSummary.from_dict(
+                    func_dict=function, base_period=base_period
+                )
+            )
+            if detection_stats_dict:
                 # enrich func stats with #detections and #possible_detections
-                functino_summary.stats = {
-                    mm_constants.ResultStatusApp.detected.name: detection_stats_dict.get((functino_summary.name, mm_constants.ResultStatusApp.detected.value), 0),
-                    mm_constants.ResultStatusApp.potential_detection.name: detection_stats_dict.get((functino_summary.name, mm_constants.ResultStatusApp.potential_detection.value), 0),
+                function_summary.stats = {
+                    mm_constants.ResultStatusApp.detected.name: detection_stats_dict.get(
+                        (
+                            function_summary.name,
+                            mm_constants.ResultStatusApp.detected.value,
+                        ),
+                        0,
+                    ),
+                    mm_constants.ResultStatusApp.potential_detection.name: detection_stats_dict.get(
+                        (
+                            function_summary.name,
+                            mm_constants.ResultStatusApp.potential_detection.value,
+                        ),
+                        0,
+                    ),
                 }
-           functino_summary.base_period = base_period
-           functino_summaries_list.append(functino_summary)
+            functino_summaries_list.append(function_summary)
         return functino_summaries_list
 
-
-    def _get_base_period(self, controller_func)-> typing.Optional[float]:
+    def _get_base_period(self, controller_func) -> typing.Optional[float]:
         base_period = None
 
-        for env in controller_func['spec']['env']:
-            if env['name'] == 'batch_intervals_dict':
-                base_period = json.loads(env['value'])['minutes']
+        for env in controller_func["spec"]["env"]:
+            if env["name"] == "batch_intervals_dict":
+                base_period = json.loads(env["value"])["minutes"]
         return base_period
 
         # if include_stats:
@@ -861,25 +891,24 @@ class MonitoringDeployment:
     #     self, function, start: datetime, include_stats: bool = True
     # ):
     #     mlrun.common.schemas.model_monitoring.FunctionSummary.from_func(function)
-        # if include_stats:
-        #     tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
-        #         project=self.project, secret_provider=self._secret_provider
-        #     )
-        #     # enrich func stats with #detections and #possible_detections
-        #     stats = tsdb_connector.read_results_by_status(
-        #         start=start, result_status_list=[mm_constants.ResultStatusApp.detected.value,
-        #                                          mm_constants.ResultStatusApp.potential_detection.value]
-        #     )
-        #     try :
-        #         func.stats = {
-        #             mm_constants.ResultStatusApp.detected.name: stats[
-        #                 mm_constants.ResultStatusApp.detected.value
-        #             ],
-        #             mm_constants.ResultStatusApp.potential_detection.value: stats[
-        #                 mm_constants.ResultStatusApp.potential_detection.value
-        #             ],
-        #         }
-
+    # if include_stats:
+    #     tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+    #         project=self.project, secret_provider=self._secret_provider
+    #     )
+    #     # enrich func stats with #detections and #possible_detections
+    #     stats = tsdb_connector.read_results_by_status(
+    #         start=start, result_status_list=[mm_constants.ResultStatusApp.detected.value,
+    #                                          mm_constants.ResultStatusApp.potential_detection.value]
+    #     )
+    #     try :
+    #         func.stats = {
+    #             mm_constants.ResultStatusApp.detected.name: stats[
+    #                 mm_constants.ResultStatusApp.detected.value
+    #             ],
+    #             mm_constants.ResultStatusApp.potential_detection.value: stats[
+    #                 mm_constants.ResultStatusApp.potential_detection.value
+    #             ],
+    #         }
 
     async def disable_model_monitoring(
         self,
