@@ -773,7 +773,6 @@ class MonitoringDeployment:
         """
 
 
-
         functino_summaries_list = []
         mm_functions = self.list_model_monitoring_functions(labels=labels, format_=mlrun.common.formatters.FunctionFormat.minimal)
         print("[EYAL]: mm_functions", mm_functions)
@@ -797,6 +796,9 @@ class MonitoringDeployment:
                 result_status_list=[mm_constants.ResultStatusApp.detected.value,
                                                  mm_constants.ResultStatusApp.potential_detection.value]
             )
+            # print("[EYAL]: detection_stats_dict", detection_stats_dict)
+        print("[EYAL]: going to add base_period")
+        base_period = self._get_base_period()
 
         for function in mm_functions:
 
@@ -807,11 +809,24 @@ class MonitoringDeployment:
                     mm_constants.ResultStatusApp.detected.name: detection_stats_dict.get((functino_summary.name, mm_constants.ResultStatusApp.detected.value), 0),
                     mm_constants.ResultStatusApp.potential_detection.name: detection_stats_dict.get((functino_summary.name, mm_constants.ResultStatusApp.potential_detection.value), 0),
                 }
+           functino_summary.base_period = base_period
            functino_summaries_list.append(functino_summary)
         return functino_summaries_list
 
 
+    def _get_base_period(self)-> float:
+        controller_func = services.api.crud.Functions().get_function(
+            db_session=self.db_session,
+            project=self.project,
+            name=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER,
+            tag="latest",
+        )
 
+        if not controller_func:
+            logger.warn("No controller function found, you might need to re-enable model monitoring")
+            return 0
+        print("[EYAL]: controller_func", controller_func)
+        return controller_func['spec']['env']['batch_intervals_dict']['minutes']
         # if include_stats:
 
     # def _convert_to_function_summary(
