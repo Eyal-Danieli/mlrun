@@ -794,26 +794,26 @@ class MonitoringDeployment:
         :param end:              The end time of the function. Applicable only when `include_status` is set to True.
         """
 
-        functino_summaries_list = []
-        base_period = None
-
         # Enrich response with infra functions
-        infra_mm_functions = self.list_model_monitoring_functions(
-            format_=mlrun.common.formatters.FunctionFormat.minimal, infra_only=True
+        functino_summaries_list, base_period = (
+            self._enrich_function_summary_with_infra()
         )
-        print("[EYAL]: infra functions: ", infra_mm_functions)
-        for function in infra_mm_functions:
-            function_summary = (
-                mlrun.common.schemas.model_monitoring.FunctionSummary.from_dict(
-                    function, func_type="infra"
-                )
-            )
-            functino_summaries_list.append(function_summary)
-            if (
-                function["metadata"]["name"]
-                == mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER
-            ):
-                base_period = self._get_base_period(controller_func=function)
+        # infra_mm_functions = self.list_model_monitoring_functions(
+        #     format_=mlrun.common.formatters.FunctionFormat.full, infra_only=True
+        # )
+        # print("[EYAL]: infra functions: ", infra_mm_functions)
+        # for function in infra_mm_functions:
+        #     function_summary = (
+        #         mlrun.common.schemas.model_monitoring.FunctionSummary.from_dict(
+        #             function, func_type="infra"
+        #         )
+        #     )
+        #     functino_summaries_list.append(function_summary)
+        #     if (
+        #         function["metadata"]["name"]
+        #         == mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER
+        #     ):
+        #         base_period = self._get_base_period(controller_func=function)
 
         # Enrich response with monitoring applications
         mm_functions = self.list_model_monitoring_functions(
@@ -876,6 +876,31 @@ class MonitoringDeployment:
                 }
             functino_summaries_list.append(function_summary)
         return functino_summaries_list
+
+    def _enrich_function_summary_with_infra(self):
+        function_summaries_list = []
+        base_period = None
+
+        infra_mm_functions = self.list_model_monitoring_functions(
+            format_=mlrun.common.formatters.FunctionFormat.full, infra_only=True
+        )
+
+        print("[EYAL]: infra functions: ", infra_mm_functions)
+        if not infra_mm_functions:
+            logger.info("No model monitoring infrastructure functions found")
+        for function in infra_mm_functions:
+            function_summary = (
+                mlrun.common.schemas.model_monitoring.FunctionSummary.from_dict(
+                    function, func_type="infra"
+                )
+            )
+            function_summaries_list.append(function_summary)
+            if (
+                function["metadata"]["name"]
+                == mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER
+            ):
+                base_period = self._get_base_period(controller_func=function)
+        return function_summaries_list, base_period
 
     def _get_base_period(self, controller_func) -> typing.Optional[float]:
         base_period = None

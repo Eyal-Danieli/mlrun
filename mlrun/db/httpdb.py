@@ -4112,6 +4112,35 @@ class HTTPRunDB(RunDBInterface):
             params={**credentials, "replace_creds": replace_creds},
         )
 
+    def get_monitoring_function_summaries(
+        self,
+        project: str,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        names: Optional[Union[list[str], str]] = None,
+        labels: Optional[Union[str, dict[str, Optional[str]], list[str]]] = None,
+        include_stats: bool = False,
+    ):
+        path = f"projects/{project}/model-monitoring/function-summaries"
+        labels = self._parse_labels(labels)
+        if names and isinstance(names, str):
+            names = [names]
+        print("[EYAL]: going to make API call")
+        response = self.api_call(
+            method=mlrun.common.types.HTTPMethod.GET,
+            path=path,
+            params={
+                "start": datetime_to_iso(start),
+                "end": datetime_to_iso(end),
+                "names": names,
+                "labels": labels,
+                "include_stats": include_stats,
+            },
+        )
+        print("[EYAL]: response", response)
+        print("[EYAL]: response json", response.json())
+        return mlrun.common.schemas.model_monitoring.FunctionSummary(**response.json())
+
     def create_hub_source(
         self, source: Union[dict, mlrun.common.schemas.IndexedHubSource]
     ):
