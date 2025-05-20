@@ -1248,8 +1248,9 @@ class V3IOTSDBConnector(TSDBConnector):
             ],
             filter_query=filter_query,
         )
+        print("[EYAL]: this is the resulted df: ", df)
         # filter result status
-        if result_status_list:
+        if result_status_list and not df.empty:
             df = df[df[mm_schemas.ResultData.RESULT_STATUS].isin(result_status_list)]
         print("[EYAL]: this is the resulted df: ", df)
         print("[EYAL]: this is the resulted df start: ", start)
@@ -1258,7 +1259,6 @@ class V3IOTSDBConnector(TSDBConnector):
         if df.empty:
             return {}
         else:
-
             # convert application name to lower case
             df[mm_schemas.ApplicationEvent.APPLICATION_NAME] = df[mm_schemas.ApplicationEvent.APPLICATION_NAME].str.lower()
 

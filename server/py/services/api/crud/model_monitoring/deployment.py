@@ -786,6 +786,7 @@ class MonitoringDeployment:
 
         detection_stats_dict = {}
         if include_stats:
+            print("[EYAL]: yes include stats!")
             tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
                 project=self.project, secret_provider=self._secret_provider
             )
@@ -796,7 +797,7 @@ class MonitoringDeployment:
                 result_status_list=[mm_constants.ResultStatusApp.detected.value,
                                                  mm_constants.ResultStatusApp.potential_detection.value]
             )
-            # print("[EYAL]: detection_stats_dict", detection_stats_dict)
+            print("[EYAL]: detection_stats_dict", detection_stats_dict)
         print("[EYAL]: going to add base_period")
         base_period = self._get_base_period()
 
@@ -814,7 +815,8 @@ class MonitoringDeployment:
         return functino_summaries_list
 
 
-    def _get_base_period(self)-> float:
+    def _get_base_period(self)-> typing.Optional[float]:
+        base_period = None
         controller_func = services.api.crud.Functions().get_function(
             db_session=self.db_session,
             project=self.project,
@@ -824,9 +826,13 @@ class MonitoringDeployment:
 
         if not controller_func:
             logger.warn("No controller function found, you might need to re-enable model monitoring")
-            return 0
-        print("[EYAL]: controller_func", controller_func)
-        return controller_func['spec']['env']['batch_intervals_dict']['minutes']
+        else:
+            print("[EYAL]: controller_func", controller_func)
+            for env in controller_func['spec']['env']:
+                if env['name'] == 'batch_intervals_dict':
+                    base_period = json.loads(env['value'])['minutes']
+        return base_period
+
         # if include_stats:
 
     # def _convert_to_function_summary(
