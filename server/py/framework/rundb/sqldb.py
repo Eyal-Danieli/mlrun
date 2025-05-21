@@ -1285,7 +1285,7 @@ class SQLRunDB(RunDBInterface):
         names: Optional[Union[list[str], str]] = None,
         labels: Optional[Union[str, dict[str, Optional[str]], list[str]]] = None,
         include_stats: bool = False,
-    ) -> None:
+    ) -> [mlrun.common.schemas.model_monitoring.FunctionSummary]:
         raise NotImplementedError
 
     def _transform_db_error(self, func, *args, **kwargs):
