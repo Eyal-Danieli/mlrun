@@ -414,9 +414,9 @@ async def _common_function_parameters(
 @router.get("/function-summaries")
 async def get_model_monitoring_function_summaries(
     commons: Annotated[_FunctionSummariesParams, Depends(_common_function_parameters)],
-    names: Optional[list[str]] = None,
-    labels: Optional[list[str]] = None,
-    include_stats: bool = True,
+    names: Optional[list[str]] = Query(None, alias="name"),
+    labels: list[str] = Query([], alias="label"),
+    include_stats: bool = Query(True, alias="include_stats"),
 ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
     # pass
 

@@ -4135,8 +4135,8 @@ class HTTPRunDB(RunDBInterface):
             params={
                 "start": datetime_to_iso(start),
                 "end": datetime_to_iso(end),
-                "names": names,
-                "labels": labels,
+                "name": names,
+                "label": labels,
                 "include_stats": include_stats,
             },
         )
