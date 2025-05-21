@@ -50,6 +50,7 @@ from mlrun_pipelines.utils import compile_pipeline
 
 from ..artifacts import Artifact
 from ..common.schemas import AlertActivations
+from ..common.schemas.model_monitoring import FunctionSummary
 from ..config import config
 from ..datastore.datastore_profile import DatastoreProfile2Json
 from ..feature_store import FeatureSet, FeatureVector
@@ -4120,7 +4121,7 @@ class HTTPRunDB(RunDBInterface):
         names: Optional[Union[list[str], str]] = None,
         labels: Optional[Union[str, dict[str, Optional[str]], list[str]]] = None,
         include_stats: bool = False,
-    ):
+    ) -> list[FunctionSummary]:
         path = f"projects/{project}/model-monitoring/function-summaries"
         labels = self._parse_labels(labels)
         if names and isinstance(names, str):
@@ -4139,7 +4140,10 @@ class HTTPRunDB(RunDBInterface):
         )
         print("[EYAL]: response", response)
         print("[EYAL]: response json", response.json())
-        return mlrun.common.schemas.model_monitoring.FunctionSummary(**response.json())
+        results = []
+        for item in response.json():
+            results.append(FunctionSummary(**item))
+        return results
 
     def create_hub_source(
         self, source: Union[dict, mlrun.common.schemas.IndexedHubSource]
