@@ -4736,8 +4736,8 @@ class MlrunProject(ModelObj):
 
 
     def get_monitoring_function_summaries(self,
-        start: Optional[datetime] = None,
-        end: Optional[datetime] = None,
+        start: Optional[datetime.datetime] = None,
+        end: Optional[datetime.datetime] = None,
         names: Optional[Union[list[str], str]] = None,
         labels: Optional[Union[str, dict[str, Optional[str]], list[str]]] = None,
         include_stats: bool = False,
