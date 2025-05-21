@@ -13,19 +13,23 @@
 # limitations under the License.
 from datetime import datetime
 from typing import Optional
-
+import enum
 from pydantic.v1 import BaseModel
 
+class ModelMonitoringFunctionsType(enum.Enum):
+    APPLICATION = "application"
+    INFRA = "infra"
 
 class FunctionSummary(BaseModel):
     """
-    Function summary model.
+    Function summary model. Includes metadata about the function, such as its name, but also statistical metrics such
+    as the number of detections and possible detections. A function summary can be from either a model monitoring
+    application (type "application") or an infrastructure function (type "infra").
     """
 
-    type: str
+    type: ModelMonitoringFunctionsType
     name: str
     application_class: str
-    start_time: datetime
     updated_time: datetime
     status: str
     base_period: Optional[float] = None
@@ -35,7 +39,7 @@ class FunctionSummary(BaseModel):
     def from_func(
         cls,
         func,
-        func_type="application",
+        func_type=ModelMonitoringFunctionsType.APPLICATION,
         base_period: Optional[float] = None,
         stats: Optional[dict] = None,
     ):
@@ -49,9 +53,8 @@ class FunctionSummary(BaseModel):
             application_class=func.spec.graph.steps.get(
                 "PushToMonitoringWriter", {}
             ).get("after", [None])[0]
-            if func_type == "application"
+            if func_type == ModelMonitoringFunctionsType.APPLICATION
             else "",
-            start_time=func.metadata.updated,
             updated_time=func.metadata.updated,
             status=func.status.state,
             base_period=base_period,
@@ -62,7 +65,7 @@ class FunctionSummary(BaseModel):
     def from_dict(
         cls,
         func_dict: dict,
-        func_type="application",
+        func_type=ModelMonitoringFunctionsType.APPLICATION,
         base_period: Optional[float] = None,
         stats: Optional[dict] = None,
     ):
@@ -74,11 +77,10 @@ class FunctionSummary(BaseModel):
             type=func_type,
             name=func_dict["metadata"]["name"],
             application_class=""
-            if func_type != "application"
+            if func_type != ModelMonitoringFunctionsType.APPLICATION
             else func_dict["spec"]["graph"]["steps"]["PushToMonitoringWriter"]["after"][
                 0
             ],
-            start_time=func_dict["metadata"].get("updated"),
             updated_time=func_dict["metadata"].get("updated"),
             status=func_dict["status"].get("state"),
             base_period=base_period,

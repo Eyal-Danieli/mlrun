@@ -450,6 +450,8 @@ class ModelMonitoringLabels:
     MLRUN_MODEL_MONITORING_INFRA = "mlrun-model-monitoring-infra"
 
 
+
+
 _RESERVED_FUNCTION_NAMES = MonitoringFunctionNames.list() + [SpecialApps.MLRUN_INFRA]
 
 

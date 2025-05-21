@@ -808,10 +808,7 @@ class MonitoringDeployment:
         mm_functions = self.list_model_monitoring_functions(
             labels=labels, format_=mlrun.common.formatters.FunctionFormat.minimal
         )
-        print("[EYAL]: mm_functions", mm_functions)
-        print("[EYAL]: names", names)
-        print("[EYAL]: labels", labels)
-        # print("[EYAL]: mm_functions", mm_functions[0].to_dict())
+
         if names:
 
             mm_functions = [

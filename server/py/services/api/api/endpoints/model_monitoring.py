@@ -54,7 +54,7 @@ class _CommonParams:
 
 
 async def _verify_authorization(
-    project: str, auth_info: mlrun.common.schemas.AuthInfo, client_version: str
+    project: str, auth_info: mlrun.common.schemas.AuthInfo, client_version: str, action: str = mlrun.common.schemas.AuthorizationAction.store
 ) -> None:
     """Verify project authorization"""
     if (
@@ -71,7 +71,7 @@ async def _verify_authorization(
         resource_type=mlrun.common.schemas.AuthorizationResourceTypes.function,
         project_name=project,
         resource_name=mlrun.common.schemas.model_monitoring.MonitoringFunctionNames.APPLICATION_CONTROLLER,
-        action=mlrun.common.schemas.AuthorizationAction.store,
+        action=action,
         auth_info=auth_info,
     )
 
@@ -337,9 +337,7 @@ class _FunctionSummariesParams:
     db_session: Session
     start: datetime
     end: datetime
-    # names: Optional[list[str]] = None
-    # labels: Optional[list[str]] = None
-    # include_stats: bool = True
+
 
 
 async def _common_function_parameters(
@@ -351,11 +349,11 @@ async def _common_function_parameters(
         mlrun.common.schemas.AuthInfo, Depends(deps.authenticate_request)
     ],
     db_session: Annotated[Session, Depends(deps.get_db_session)],
+    client_version: Optional[str] = Header(
+        None, alias=mlrun.common.schemas.HeaderNames.client_version
+    ),
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
-    # names: Optional[list[str]] = None,
-    # labels: Optional[list[str]] = None,
-    # include_stats: bool = True,
 ) -> _FunctionSummariesParams:
     """
     Verify authorization and return common parameters.
@@ -363,25 +361,15 @@ async def _common_function_parameters(
     :param project:         Project name.
     :param auth_info:       The auth info of the request.
     :param db_session:      A session that manages the current dialog with the database.
-    :param client_version:  The client version.
     :returns:          A `_CommonParameters` object that contains the input data.
     """
-    # await framework.utils.auth.verifier.AuthVerifier().filter_project_resources_by_permissions(
-    #     mlrun.common.schemas.AuthorizationResourceTypes.function,
-    #     _functions,
-    #     lambda function: (
-    #         function.get("metadata", {}).get(
-    #             "project", mlrun.mlconf.default_project
-    #         ),
-    #         function["metadata"]["name"],
-    #     ),
-    #     auth_info,
-    # )
+
     print("[EYAL]: function_summaries project:", project)
     print("[EYAL]: function_summaries start:", start)
     print("[EYAL]: function_summaries end:", end)
-    # print("[EYAL]: function_summaries names:", names)
-    # print("[EYAL]: function_summaries labels:", labels)
+    await _verify_authorization(
+        project=project, auth_info=auth_info, client_version=client_version, action=mlrun.common.schemas.AuthorizationAction.read
+    )
     if start is None and end is None:
         end = mlrun.utils.helpers.datetime_now()
         start = end - timedelta(days=1)
@@ -405,9 +393,6 @@ async def _common_function_parameters(
         db_session=db_session,
         start=start,
         end=end,
-        # names=names,
-        # labels=labels,
-        # include_stats=include_stats,
     )
 
 
@@ -418,19 +403,19 @@ async def get_model_monitoring_function_summaries(
     labels: list[str] = Query([], alias="label"),
     include_stats: bool = Query(True, alias="include_stats"),
 ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
-    # pass
+    """Get monitoring function summaries for the specified project.
 
-    # await framework.utils.auth.verifier.AuthVerifier().filter_project_resources_by_permissions(
-    #     mlrun.common.schemas.AuthorizationResourceTypes.function,
-    #     _functions,
-    #     lambda function: (
-    #         function.get("metadata", {}).get(
-    #             "project", mlrun.mlconf.default_project
-    #         ),
-    #         function["metadata"]["name"],
-    #     ),
-    #     auth_info,
-    # )
+    :param commons:                     The common parameters of the request.
+    :param names: List of function names to filter by (optional).
+    :param labels: Labels to filter by (optional).
+    :param include_stats: Whether to include statistics in the response (default is False).
+
+    :return: A list of FunctionSummary objects containing information about the monitoring functions.
+    """
+
+
+
+
     print("[EYAL]: common_function_parameters names:", names)
     return MonitoringDeployment(
         project=commons.project,
@@ -443,22 +428,3 @@ async def get_model_monitoring_function_summaries(
         labels=labels,
         include_stats=include_stats,
     )
-    # func_summary = await run_in_threadpool(
-    #     services.api.crud.Functions().get_function,
-    #     db_session,
-    #     name,
-    #     project,
-    #     tag,
-    #     hash_key,
-    #     format_,
-    # )
-    # await (
-    #     framework.utils.auth.verifier.AuthVerifier().query_project_resource_permissions(
-    #         mlrun.common.schemas.AuthorizationResourceTypes.function,
-    #         commons.project,
-    #         name,
-    #         mlrun.common.schemas.AuthorizationAction.read,
-    #         auth_info,
-    #     )
-    # )
-    # return func_summary
