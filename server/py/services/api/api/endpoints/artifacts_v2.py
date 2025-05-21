@@ -248,12 +248,12 @@ async def get_artifact(
     tag: Optional[str] = None,
     iter: Optional[int] = None,
     object_uid: str = Query(None, alias="object-uid"),
-    # TODO: remove deprecated uid parameter in 1.9.0
+    # TODO: remove deprecated uid parameter in 1.10.0
     # we support both uid and object-uid for backward compatibility
     uid: str = Query(
         None,
         deprecated=True,
-        description="Use object-uid instead, will be removed in the 1.9.0",
+        description="Use object-uid instead, will be removed in the 1.10.0",
     ),
     format_: str = Query(mlrun.common.formatters.ArtifactFormat.full, alias="format"),
     auth_info: mlrun.common.schemas.AuthInfo = Depends(deps.authenticate_request),
@@ -303,12 +303,12 @@ async def delete_artifact(
     tree: Optional[str] = None,
     tag: Optional[str] = None,
     object_uid: str = Query(None, alias="object-uid"),
-    # TODO: remove deprecated uid parameter in 1.9.0
+    # TODO: remove deprecated uid parameter in 1.10.0
     # we support both uid and object-uid for backward compatibility
     uid: str = Query(
         None,
         deprecated=True,
-        description="Use object-uid instead, will be removed in the 1.9.0",
+        description="Use object-uid instead, will be removed in the 1.10.0",
     ),
     iteration: int = Query(None, alias="iter"),
     deletion_strategy: ArtifactsDeletionStrategies = ArtifactsDeletionStrategies.metadata_only,
@@ -363,7 +363,8 @@ async def delete_artifacts(
     auth_info: mlrun.common.schemas.AuthInfo = Depends(deps.authenticate_request),
     db_session: Session = Depends(deps.get_db_session),
 ):
-    project = project or mlrun.mlconf.default_project
+    if not project:
+        raise mlrun.errors.MLRunMissingProjectError()
     artifacts = await run_in_threadpool(
         services.api.crud.Artifacts().list_artifacts,
         db_session,
