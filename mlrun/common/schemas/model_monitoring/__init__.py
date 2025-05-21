@@ -42,7 +42,6 @@ from .constants import (
     VersionedModel,
     WriterEvent,
     WriterEventKind,
-
 )
 from .functions import FunctionSummary, ModelMonitoringFunctionsType
 from .grafana import (

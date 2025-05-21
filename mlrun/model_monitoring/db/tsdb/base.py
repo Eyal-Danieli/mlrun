@@ -336,8 +336,10 @@ class TSDBConnector(ABC):
         endpoint_ids: Union[str, list[str]] = None,
         application_names: Union[str, list[str]] = None,
         result_status_list: Optional[list[int]] = None,
-    ):
-        pass
+    ) -> dict[tuple[str, int], int]:
+        """
+        Read results status from the TSDB and return a dictionary of results statuses by application name.
+        """
 
     async def add_basic_metrics(
         self,

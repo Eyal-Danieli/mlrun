@@ -11,14 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import enum
 from datetime import datetime
 from typing import Optional
-import enum
+
 from pydantic.v1 import BaseModel
+
 
 class ModelMonitoringFunctionsType(enum.Enum):
     APPLICATION = "application"
     INFRA = "infra"
+
 
 class FunctionSummary(BaseModel):
     """

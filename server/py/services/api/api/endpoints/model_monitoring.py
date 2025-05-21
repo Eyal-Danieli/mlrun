@@ -54,7 +54,10 @@ class _CommonParams:
 
 
 async def _verify_authorization(
-    project: str, auth_info: mlrun.common.schemas.AuthInfo, client_version: str, action: str = mlrun.common.schemas.AuthorizationAction.store
+    project: str,
+    auth_info: mlrun.common.schemas.AuthInfo,
+    client_version: str,
+    action: str = mlrun.common.schemas.AuthorizationAction.store,
 ) -> None:
     """Verify project authorization"""
     if (
@@ -339,7 +342,6 @@ class _FunctionSummariesParams:
     end: datetime
 
 
-
 async def _common_function_parameters(
     project: Annotated[
         str,
@@ -368,7 +370,10 @@ async def _common_function_parameters(
     print("[EYAL]: function_summaries start:", start)
     print("[EYAL]: function_summaries end:", end)
     await _verify_authorization(
-        project=project, auth_info=auth_info, client_version=client_version, action=mlrun.common.schemas.AuthorizationAction.read
+        project=project,
+        auth_info=auth_info,
+        client_version=client_version,
+        action=mlrun.common.schemas.AuthorizationAction.read,
     )
     if start is None and end is None:
         end = mlrun.utils.helpers.datetime_now()
@@ -412,9 +417,6 @@ async def get_model_monitoring_function_summaries(
 
     :return: A list of FunctionSummary objects containing information about the monitoring functions.
     """
-
-
-
 
     print("[EYAL]: common_function_parameters names:", names)
     return MonitoringDeployment(
