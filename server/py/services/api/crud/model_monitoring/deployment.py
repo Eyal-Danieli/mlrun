@@ -789,39 +789,31 @@ class MonitoringDeployment:
         """
         Retrieve a list of all the model monitoring functions with their summaries. Note that the response includes
         both monitoring application real time functions and monitoring infrastructure functions.
-        :param start:            The start time of TSDB detections and possible detection results. Applicable
+        :param start:            The start time of the statistics of the monitoring applications. Applicable
                                  only when `include_status` is set to True.
-        :param end:              The end time of the function. Applicable only when `include_status` is set to True.
+        :param end:              The start time of the statistics of the monitoring applications. Applicable only
+                                 when `include_status` is set to True.
+        :param names:            List of monitoring application function names to filter the response. Default is None.
+        :param labels:           List of labels to filter the response. Default is None.
+        :param include_stats:    If True, the function will include the statistics of the monitoring applications.
+                                 Currently, the statistics include the number of detections and possible detections.
         """
 
         # Enrich response with infra functions
         functino_summaries_list, base_period = (
             self._enrich_function_summary_with_infra()
         )
-        # infra_mm_functions = self.list_model_monitoring_functions(
-        #     format_=mlrun.common.formatters.FunctionFormat.full, infra_only=True
-        # )
-        # print("[EYAL]: infra functions: ", infra_mm_functions)
-        # for function in infra_mm_functions:
-        #     function_summary = (
-        #         mlrun.common.schemas.model_monitoring.FunctionSummary.from_dict(
-        #             function, func_type="infra"
-        #         )
-        #     )
-        #     functino_summaries_list.append(function_summary)
-        #     if (
-        #         function["metadata"]["name"]
-        #         == mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER
-        #     ):
-        #         base_period = self._get_base_period(controller_func=function)
 
         # Enrich response with monitoring applications
         mm_functions = self.list_model_monitoring_functions(
             labels=labels, format_=mlrun.common.formatters.FunctionFormat.minimal
         )
         print("[EYAL]: mm_functions", mm_functions)
+        print("[EYAL]: names", names)
+        print("[EYAL]: labels", labels)
         # print("[EYAL]: mm_functions", mm_functions[0].to_dict())
         if names:
+
             mm_functions = [
                 fn for fn in mm_functions if fn["metadata"]["name"] in names
             ]

@@ -337,9 +337,9 @@ class _FunctionSummariesParams:
     db_session: Session
     start: datetime
     end: datetime
-    names: Optional[list[str]] = None
-    labels: Optional[list[str]] = None
-    include_stats: bool = True
+    # names: Optional[list[str]] = None
+    # labels: Optional[list[str]] = None
+    # include_stats: bool = True
 
 
 async def _common_function_parameters(
@@ -353,9 +353,9 @@ async def _common_function_parameters(
     db_session: Annotated[Session, Depends(deps.get_db_session)],
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
-    names: Optional[list[str]] = None,
-    labels: Optional[list[str]] = None,
-    include_stats: bool = True,
+    # names: Optional[list[str]] = None,
+    # labels: Optional[list[str]] = None,
+    # include_stats: bool = True,
 ) -> _FunctionSummariesParams:
     """
     Verify authorization and return common parameters.
@@ -377,7 +377,11 @@ async def _common_function_parameters(
     #     ),
     #     auth_info,
     # )
-
+    print("[EYAL]: function_summaries project:", project)
+    print("[EYAL]: function_summaries start:", start)
+    print("[EYAL]: function_summaries end:", end)
+    # print("[EYAL]: function_summaries names:", names)
+    # print("[EYAL]: function_summaries labels:", labels)
     if start is None and end is None:
         end = mlrun.utils.helpers.datetime_now()
         start = end - timedelta(days=1)
@@ -394,21 +398,25 @@ async def _common_function_parameters(
         raise mlrun.errors.MLRunInvalidArgumentError(
             "Provided only one of start time, end time. Please provide both or neither."
         )
+
     return _FunctionSummariesParams(
         project=project,
         auth_info=auth_info,
         db_session=db_session,
         start=start,
         end=end,
-        names=names,
-        labels=labels,
-        include_stats=include_stats,
+        # names=names,
+        # labels=labels,
+        # include_stats=include_stats,
     )
 
 
 @router.get("/function-summaries")
 async def get_model_monitoring_function_summaries(
     commons: Annotated[_FunctionSummariesParams, Depends(_common_function_parameters)],
+    names: Optional[list[str]] = None,
+    labels: Optional[list[str]] = None,
+    include_stats: bool = True,
 ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
     # pass
 
@@ -423,6 +431,7 @@ async def get_model_monitoring_function_summaries(
     #     ),
     #     auth_info,
     # )
+    print("[EYAL]: common_function_parameters names:", names)
     return MonitoringDeployment(
         project=commons.project,
         auth_info=commons.auth_info,
@@ -430,9 +439,9 @@ async def get_model_monitoring_function_summaries(
     ).function_summaries(
         start=commons.start,
         end=commons.end,
-        names=commons.names,
-        labels=commons.labels,
-        include_stats=commons.include_stats,
+        names=names,
+        labels=labels,
+        include_stats=include_stats,
     )
     # func_summary = await run_in_threadpool(
     #     services.api.crud.Functions().get_function,
