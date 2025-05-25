@@ -331,8 +331,7 @@ class _V3IORecordsChecker:
 class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
     project_name = "test-app-flow"
     # Set image to "<repo>/mlrun:<tag>" for local testing
-    # image: typing.Optional[str] = None
-    image = "artifactory.iguazeng.com:10557/eyald/mlrun:1.9.0"
+    image: typing.Optional[str] = None
     error_count = 10
 
     @classmethod
@@ -679,11 +678,40 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
 
     def _test_function_summaries(self):
         self._logger.debug("Checking function summaries")
-        print("[EYL]: here!!")
         if self._tsdb_storage.type == mm_constants.TSDBTarget.V3IO_TSDB:
-            function_summaries = self.project.get_monitoring_function_summaries(include_stats=True)
-            assert len(function_summaries) == 7
+            function_summaries = self.project.get_monitoring_function_summaries()
+            assert len(function_summaries) == 3 + len(self.apps_data)
+            function_summaries = self.project.get_monitoring_function_summaries(
+                include_infra=False
+            )
+            assert len(function_summaries) == len(self.apps_data)
 
+            evidently_func_summary_list = (
+                self.project.get_monitoring_function_summaries(
+                    include_infra=False, names=[DemoEvidentlyMonitoringApp.NAME]
+                )
+            )
+            assert len(evidently_func_summary_list) == 1
+            evidently_func_summary = evidently_func_summary_list[0]
+            assert evidently_func_summary.name == DemoEvidentlyMonitoringApp.NAME
+            assert (
+                evidently_func_summary.status
+                == mlrun.common.schemas.FunctionState.ready
+            )
+            assert evidently_func_summary.base_period == self.app_interval
+            assert not evidently_func_summary.stats
+
+            # now get function summary with stats
+            evidently_func_summary_list = (
+                self.project.get_monitoring_function_summaries(
+                    include_infra=False,
+                    names=[DemoEvidentlyMonitoringApp.NAME],
+                    include_stats=True,
+                )
+            )
+            evidently_func_summary = evidently_func_summary_list[0]
+            assert evidently_func_summary.stats["potential_detection"] == 1
+            assert evidently_func_summary.stats["detected"] == 0
 
     @pytest.mark.parametrize("with_training_set", [True, False])
     def test_app_flow(self, with_training_set: bool) -> None:
@@ -735,19 +763,19 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
             mep.status.last_request == last_request
         ), "The saved `last_request` in the model endpoint is different than the last result timestamp"
 
-        # self._test_v3io_records(
-        #     ep_id=mep.metadata.uid,
-        #     inputs=inputs,
-        #     outputs=outputs,
-        #     last_request=mep.status.last_request,
-        #     error_count=self.error_count,
-        # )
-        # self._test_predictions_table(mep.metadata.uid)
-        # self._test_artifacts(ep_id=mep.metadata.uid)
-        # self._test_api(ep_id=mep.metadata.uid)
-        # if _DefaultDataDriftAppData in self.apps_data:
-        #     self._test_model_endpoint_stats(mep=mep)
-        # self._test_error_alert()
+        self._test_v3io_records(
+            ep_id=mep.metadata.uid,
+            inputs=inputs,
+            outputs=outputs,
+            last_request=mep.status.last_request,
+            error_count=self.error_count,
+        )
+        self._test_predictions_table(mep.metadata.uid)
+        self._test_artifacts(ep_id=mep.metadata.uid)
+        self._test_api(ep_id=mep.metadata.uid)
+        if _DefaultDataDriftAppData in self.apps_data:
+            self._test_model_endpoint_stats(mep=mep)
+        self._test_error_alert()
         self._test_function_summaries()
 
 
