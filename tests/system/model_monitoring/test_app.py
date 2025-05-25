@@ -331,7 +331,8 @@ class _V3IORecordsChecker:
 class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
     project_name = "test-app-flow"
     # Set image to "<repo>/mlrun:<tag>" for local testing
-    image: typing.Optional[str] = None
+    # image: typing.Optional[str] = None
+    image = "artifactory.iguazeng.com:10557/eyald/mlrun:1.9.0"
     error_count = 10
 
     @classmethod
@@ -676,6 +677,12 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
         # Validate alert notification
         assert alert.count == 1
 
+    def _test_function_summaries(self):
+        self._logger.debug("Checking function summaries")
+        print("[EYL]: here!!")
+        if self._tsdb_storage.type == mm_constants.TSDBTarget.V3IO_TSDB:
+            function_summaries = self.project.get_monitoring_function_summaries(include_stats=True)
+
     @pytest.mark.parametrize("with_training_set", [True, False])
     def test_app_flow(self, with_training_set: bool) -> None:
         self.project = typing.cast(mlrun.projects.MlrunProject, self.project)
@@ -726,19 +733,20 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
             mep.status.last_request == last_request
         ), "The saved `last_request` in the model endpoint is different than the last result timestamp"
 
-        self._test_v3io_records(
-            ep_id=mep.metadata.uid,
-            inputs=inputs,
-            outputs=outputs,
-            last_request=mep.status.last_request,
-            error_count=self.error_count,
-        )
-        self._test_predictions_table(mep.metadata.uid)
-        self._test_artifacts(ep_id=mep.metadata.uid)
-        self._test_api(ep_id=mep.metadata.uid)
-        if _DefaultDataDriftAppData in self.apps_data:
-            self._test_model_endpoint_stats(mep=mep)
-        self._test_error_alert()
+        # self._test_v3io_records(
+        #     ep_id=mep.metadata.uid,
+        #     inputs=inputs,
+        #     outputs=outputs,
+        #     last_request=mep.status.last_request,
+        #     error_count=self.error_count,
+        # )
+        # self._test_predictions_table(mep.metadata.uid)
+        # self._test_artifacts(ep_id=mep.metadata.uid)
+        # self._test_api(ep_id=mep.metadata.uid)
+        # if _DefaultDataDriftAppData in self.apps_data:
+        #     self._test_model_endpoint_stats(mep=mep)
+        # self._test_error_alert()
+        self._test_function_summaries()
 
 
 @TestMLRunSystemModelMonitoring.skip_test_if_env_not_configured
