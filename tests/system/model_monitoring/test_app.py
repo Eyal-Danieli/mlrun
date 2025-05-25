@@ -682,6 +682,8 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
         print("[EYL]: here!!")
         if self._tsdb_storage.type == mm_constants.TSDBTarget.V3IO_TSDB:
             function_summaries = self.project.get_monitoring_function_summaries(include_stats=True)
+            assert len(function_summaries) == 7
+
 
     @pytest.mark.parametrize("with_training_set", [True, False])
     def test_app_flow(self, with_training_set: bool) -> None:

@@ -404,6 +404,7 @@ async def get_model_monitoring_function_summaries(
     names: Optional[list[str]] = Query(None, alias="name"),
     labels: list[str] = Query([], alias="label"),
     include_stats: bool = Query(True, alias="include_stats"),
+    include_infra: bool = Query(True, alias="include_infra"),
 ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
     """Get monitoring function summaries for the specified project.
 
@@ -425,4 +426,5 @@ async def get_model_monitoring_function_summaries(
         names=names,
         labels=labels,
         include_stats=include_stats,
+        include_infra=include_infra,
     )

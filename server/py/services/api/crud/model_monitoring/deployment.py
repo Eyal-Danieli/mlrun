@@ -825,7 +825,6 @@ class MonitoringDeployment:
         In addition, it returns the base period of the controller function.
         """
         function_summaries_list = []
-        base_period = 0
         if include_infra:
             infra_mm_functions = self.list_model_monitoring_functions(
                 format_=mlrun.common.formatters.FunctionFormat.full, infra_only=True
@@ -848,7 +847,12 @@ class MonitoringDeployment:
                     base_period = self._get_base_period(controller_func=function)
         else:
             # getting the base period from the controller function
-            print("here")
+            controller_func = services.api.crud.Functions().get_function(
+                            db_session=self.db_session,
+                            name=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER,
+                            project=self.project,
+                        )
+            base_period = self._get_base_period(controller_func=controller_func)
         return function_summaries_list, base_period
 
     def _enrich_function_summary_with_applications(
