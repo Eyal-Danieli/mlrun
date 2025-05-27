@@ -391,6 +391,9 @@ async def get_model_endpoint_monitoring_metrics(
         metrics.append(mlrun.model_monitoring.helpers.get_invocations_metric(project))
     return metrics
 
+@router.get(
+    "/drift-metrics",
+)
 
 @router.get(
     "/metrics",

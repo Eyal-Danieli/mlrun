@@ -270,6 +270,10 @@ class ModelEndpointMonitoringMetric(BaseModel):
         )
 
 
+class ModelEndpointsDriftSummary(BaseModel):
+    # pro
+
+
 def compose_full_name(
     *,
     project: str,
