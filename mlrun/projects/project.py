@@ -4805,7 +4805,7 @@ class MlrunProject(ModelObj):
                 "'state' is deprecated in 1.7.0 and will be removed in 1.10.0. Use 'states' instead.",
                 FutureWarning,
             )
-
+        print("hello")
         db = mlrun.db.get_run_db(secrets=self._secrets)
         return db.list_runs(
             name,
