@@ -775,13 +775,14 @@ class TDEngineConnector(TSDBConnector):
     ) -> dict[tuple[str, int], int]:
         filter_query = ""
 
-
         start = start or (mlrun.utils.datetime_now() - timedelta(hours=24))
         start, end = self._get_start_end(start, end)
 
         if endpoint_ids:
-            filter_query = self._generate_filter_query(filter_key=mm_schemas.EventFieldType.ENDPOINT_ID,
-                                                       filter_values=endpoint_ids)
+            filter_query = self._generate_filter_query(
+                filter_key=mm_schemas.EventFieldType.ENDPOINT_ID,
+                filter_values=endpoint_ids,
+            )
         if application_names:
             app_filter_query = self._generate_filter_query(
                 filter_key=mm_schemas.ApplicationEvent.APPLICATION_NAME,
@@ -799,7 +800,6 @@ class TDEngineConnector(TSDBConnector):
             else:
                 filter_query = status_filter_query
 
-
         df = self._get_records(
             table=self.tables[mm_schemas.TDEngineSuperTables.APP_RESULTS].super_table,
             start=start,
@@ -807,7 +807,7 @@ class TDEngineConnector(TSDBConnector):
             columns=[
                 mm_schemas.WriterEvent.APPLICATION_NAME,
                 mm_schemas.ResultData.RESULT_STATUS,
-                mm_schemas.ResultData.RESULT_VALUE
+                mm_schemas.ResultData.RESULT_VALUE,
             ],
             filter_query=filter_query,
             timestamp_column=mm_schemas.WriterEvent.END_INFER_TIME,
@@ -833,7 +833,10 @@ class TDEngineConnector(TSDBConnector):
 
         # Convert DataFrame to a dictionary
         return {
-            (row[mm_schemas.WriterEvent.APPLICATION_NAME], row[mm_schemas.ResultData.RESULT_STATUS]): row["count(result_value)"]
+            (
+                row[mm_schemas.WriterEvent.APPLICATION_NAME],
+                row[mm_schemas.ResultData.RESULT_STATUS],
+            ): row["count(result_value)"]
             for _, row in df.iterrows()
         }
 
