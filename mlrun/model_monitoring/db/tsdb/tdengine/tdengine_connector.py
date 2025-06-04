@@ -807,6 +807,7 @@ class TDEngineConnector(TSDBConnector):
             columns=[
                 mm_schemas.WriterEvent.APPLICATION_NAME,
                 mm_schemas.ResultData.RESULT_STATUS,
+                mm_schemas.ResultData.RESULT_VALUE
             ],
             filter_query=filter_query,
             timestamp_column=mm_schemas.WriterEvent.END_INFER_TIME,
