@@ -821,16 +821,6 @@ class TDEngineConnector(TSDBConnector):
         if df.empty:
             return {}
 
-        # # Filter by application names and result statuses
-        # if application_names:
-        #     df = df[
-        #         df[mm_schemas.WriterEvent.APPLICATION_NAME].isin(application_names)
-        #     ]
-        # if result_status_list:
-        #     df = df[
-        #         df[mm_schemas.ResultData.RESULT_STATUS].isin(result_status_list)
-        #     ]
-
         # Convert DataFrame to a dictionary
         return {
             (
