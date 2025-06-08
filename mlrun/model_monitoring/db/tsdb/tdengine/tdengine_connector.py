@@ -825,6 +825,44 @@ class TDEngineConnector(TSDBConnector):
             for _, row in df.iterrows()
         }
 
+    def count_processed_model_endpoints(
+        self,
+        start: datetime,
+        end: datetime,
+        application_names: Optional[Union[str, list[str]]] = None,
+    ) -> dict[str, int]:
+        filter_query = ""
+
+        if application_names:
+            filter_query = self._generate_filter_query(
+                filter_column=mm_schemas.WriterEvent.APPLICATION_NAME,
+                filter_values=application_names,
+            )
+
+        df = self._get_records(
+            table=self.tables[mm_schemas.TDEngineSuperTables.APP_RESULTS].super_table,
+            start=start,
+            end=end,
+            timestamp_column=mm_schemas.WriterEvent.END_INFER_TIME,
+            columns=[
+                mm_schemas.WriterEvent.APPLICATION_NAME,
+                mm_schemas.WriterEvent.ENDPOINT_ID,
+            ],
+            filter_query=filter_query,
+            group_by=[
+                mm_schemas.WriterEvent.APPLICATION_NAME,
+            ],
+            preform_agg_columns=[mm_schemas.WriterEvent.ENDPOINT_ID],
+            agg_funcs=["count"],
+        )
+        if df.empty:
+            return {}
+        # Convert DataFrame to a dictionary
+        return {
+            row[mm_schemas.WriterEvent.APPLICATION_NAME]: row["count(endpoint_id)"]
+            for _, row in df.iterrows()
+        }
+
     def get_metrics_metadata(
         self,
         endpoint_id: Union[str, list[str]],

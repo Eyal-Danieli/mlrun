@@ -1268,3 +1268,21 @@ class V3IOTSDBConnector(TSDBConnector):
             )
 
             return df[mm_schemas.ResultData.RESULT_VALUE].to_dict()
+
+    def count_processed_model_endpoints(
+        self,
+        start: datetime,
+        end: datetime,
+        application_names: Optional[Union[str, list[str]]] = None,
+    ) -> dict[str, int]:
+        """
+        Count the number of processed model endpoints within a given time range for specific applications.
+
+        :param start:              The start time of the query.
+        :param end:                The end time of the query.
+        :param application_names:  A list of application names to filter the results by. If not provided, all
+                                   applications are included.
+
+        :return:                   The count of processed model endpoints.
+        """
+        pass

@@ -358,6 +358,24 @@ class TSDBConnector(ABC):
                  }
         """
 
+    @abstractmethod
+    def count_processed_model_endpoints(
+        self,
+        start: datetime,
+        end: datetime,
+        application_names: Optional[Union[str, list[str]]] = None,
+    ) -> dict[str, int]:
+        """
+        Count the number of processed model endpoints within a given time range for specific applications.
+
+        :param start:              The start time of the query.
+        :param end:                The end time of the query.
+        :param application_names:  A list of application names to filter the results by. If not provided, all
+                                   applications are included.
+
+        :return:                   The count of processed model endpoints.
+        """
+
     async def add_basic_metrics(
         self,
         model_endpoint_objects: list[mlrun.common.schemas.ModelEndpoint],

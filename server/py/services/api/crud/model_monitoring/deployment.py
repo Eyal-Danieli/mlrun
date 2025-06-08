@@ -791,6 +791,7 @@ class MonitoringDeployment:
         labels: typing.Optional[list[str]] = None,
         include_stats: bool = True,
         include_infra: bool = True,
+        include_processed_model_endpoints: bool = False,
     ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
         """
         Retrieve a list of all the model monitoring functions with their summaries. Note that the response includes
@@ -824,6 +825,36 @@ class MonitoringDeployment:
         )
 
         return infra_function_summaries_list + application_function_summaries_list
+
+    def function_summary(
+        self,
+        name: str,
+        start: typing.Optional[datetime] = None,
+        end: typing.Optional[datetime] = None,
+    ) -> mlrun.common.schemas.model_monitoring.FunctionSummary:
+        """
+        Retrieve a single model monitoring function summary by its name.
+        :param name:  The name of the model monitoring function to retrieve.
+        :param start: The start time of the statistics of the monitoring application. If not set, the default is
+                      24 hours ago.
+        :param end:   The end time of the statistics of the monitoring application. If not set, the default is now.
+
+        :return:     A FunctionSummary object representing the model monitoring function.
+        """
+        function_summary = self.function_summaries(
+            start=start,
+            end=end,
+            names=[name],
+            include_infra=False,
+            include_stats=True,
+            include_processed_model_endpoints=True,
+        )
+        if not function_summary:
+            raise mlrun.errors.MLRunNotFoundError(
+                f"Model monitoring function '{name}' not found in project '{self.project}'."
+            )
+
+        return function_summary[0]
 
     def _get_function_summary_infra(
         self,
@@ -883,6 +914,7 @@ class MonitoringDeployment:
         names: typing.Optional[list[str]] = None,
         labels: typing.Optional[list[str]] = None,
         include_stats: bool = True,
+        include_processed_model_endpoints: bool = False,
     ):
         """
         Return function summaries list with the model monitoring applications.
@@ -901,6 +933,7 @@ class MonitoringDeployment:
             ]
 
         detection_stats_dict = {}
+        processed_model_endpoints_dict = {}
         if include_stats:
             # enrich func stats with #detections and #possible_detections
             now = mlrun.utils.datetime_now()
@@ -918,6 +951,13 @@ class MonitoringDeployment:
                     mm_constants.ResultStatusApp.potential_detection.value,
                 ],
             )
+            if include_processed_model_endpoints:
+                # enrich func stats with processed model endpoints
+                processed_model_endpoints_dict = (
+                    tsdb_connector.count_processed_model_endpoints(
+                        start=start, end=end, application_names=names
+                    )
+                )
 
         for function in mm_functions_list:
             function_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_function_dict(
@@ -941,6 +981,11 @@ class MonitoringDeployment:
                         0,
                     ),
                 }
+            if include_processed_model_endpoints:
+                # enrich func stats with processed model endpoints
+                function_summary.stats["processed_model_endpoints"] = (
+                    processed_model_endpoints_dict.get(function_summary.name, 0)
+                )
             function_summaries_list.append(function_summary)
         return function_summaries_list
 
