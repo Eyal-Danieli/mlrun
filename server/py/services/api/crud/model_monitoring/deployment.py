@@ -935,6 +935,7 @@ class MonitoringDeployment:
 
         detection_stats_dict = {}
         processed_model_endpoints_dict = {}
+        tsdb_connector = None
         if include_stats:
             # enrich func stats with #detections and #possible_detections
             now = mlrun.utils.datetime_now()
@@ -952,13 +953,18 @@ class MonitoringDeployment:
                     mm_constants.ResultStatusApp.potential_detection.value,
                 ],
             )
-            if include_processed_model_endpoints:
-                # enrich func stats with processed model endpoints
-                processed_model_endpoints_dict = (
-                    tsdb_connector.count_processed_model_endpoints(
-                        start=start, end=end, application_names=names
-                    )
+        if include_processed_model_endpoints:
+            if not tsdb_connector:
+                # if tsdb_connector is not initialized, initialize it
+                tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+                    project=self.project, secret_provider=self._secret_provider
                 )
+            # enrich func stats with processed model endpoints
+            processed_model_endpoints_dict = (
+                tsdb_connector.count_processed_model_endpoints(
+                    start=start, end=end, application_names=names
+                )
+            )
 
         for function in mm_functions_list:
             function_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_function_dict(
