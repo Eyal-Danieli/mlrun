@@ -434,15 +434,20 @@ async def get_model_monitoring_function_summaries(
 @router.get("/function-summaries/{function_name}")
 async def get_model_monitoring_function_summary(
     commons: Annotated[_FunctionSummariesParams, Depends(_common_function_parameters)],
-    name: str,
+    function_name: str,
 ) -> mlrun.common.schemas.model_monitoring.FunctionSummary:
     """Get monitoring function summary for the specified project and function name.
 
     :param commons: The common parameters of the request.
-    :param name: The name of the function to retrieve the summary for.
+    :param function_name: The name of the function to retrieve the summary for.
 
     :return: A FunctionSummary object containing information about the monitoring function.
     """
+
+    print("[EYAL]: get_model_monitoring_function_summary called with function_name:", function_name)
+    print("[EYAL]: get_model_monitoring_function_summary called with start", commons.start)
+    print("[EYAL]: get_model_monitoring_function_summary called with end", commons.end)
+
     return MonitoringDeployment(
         project=commons.project,
         auth_info=commons.auth_info,
@@ -450,5 +455,5 @@ async def get_model_monitoring_function_summary(
     ).function_summary(
         start=commons.start,
         end=commons.end,
-        name=name,
+        name=function_name,
     )

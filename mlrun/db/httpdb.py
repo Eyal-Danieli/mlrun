@@ -4182,6 +4182,7 @@ class HTTPRunDB(RunDBInterface):
         """
         path = f"projects/{project}/model-monitoring/function-summaries/{function_name}"
         params = {"start": datetime_to_iso(start), "end": datetime_to_iso(end)}
+        print("[EYAL]: params", params)
         response = self.api_call(
             method=mlrun.common.types.HTTPMethod.GET,
             path=path,

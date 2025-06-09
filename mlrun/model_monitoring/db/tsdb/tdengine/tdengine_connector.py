@@ -838,7 +838,9 @@ class TDEngineConnector(TSDBConnector):
                 filter_column=mm_schemas.WriterEvent.APPLICATION_NAME,
                 filter_values=application_names,
             )
-
+        print("[EYAL]: now in count_processed_model_endpoints, filter_query:", filter_query)
+        print("[EYAL]: now in count_processed_model_endpoints, start:", start)
+        print("[EYAL]: now in count_processed_model_endpoints, end:", end)
         def _get_application_endpoints_records(super_table: str) -> pd.DataFrame:
             return self._get_records(
                 table=super_table,
@@ -868,6 +870,8 @@ class TDEngineConnector(TSDBConnector):
         )
 
         combined_df = pd.concat([df_results, df_metrics]).drop_duplicates()
+
+        print("[EYAL]: now in count_processed_model_endpoints, combined_df:", combined_df)
         if combined_df.empty:
             return {}
         grouped_df = combined_df.groupby(
