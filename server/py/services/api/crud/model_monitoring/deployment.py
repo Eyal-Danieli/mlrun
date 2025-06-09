@@ -822,6 +822,7 @@ class MonitoringDeployment:
             names=names,
             labels=labels,
             include_stats=include_stats,
+            include_processed_model_endpoints=include_processed_model_endpoints,
         )
 
         return infra_function_summaries_list + application_function_summaries_list

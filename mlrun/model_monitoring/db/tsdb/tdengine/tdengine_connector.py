@@ -830,7 +830,7 @@ class TDEngineConnector(TSDBConnector):
         start: datetime,
         end: datetime,
         application_names: Optional[Union[str, list[str]]] = None,
-    ) -> dict[str, int]:
+    ) -> dict:
         filter_query = ""
 
         if application_names:
@@ -839,28 +839,45 @@ class TDEngineConnector(TSDBConnector):
                 filter_values=application_names,
             )
 
-        df = self._get_records(
-            table=self.tables[mm_schemas.TDEngineSuperTables.APP_RESULTS].super_table,
-            start=start,
-            end=end,
-            timestamp_column=mm_schemas.WriterEvent.END_INFER_TIME,
-            columns=[
-                mm_schemas.WriterEvent.APPLICATION_NAME,
-                mm_schemas.WriterEvent.ENDPOINT_ID,
-            ],
-            filter_query=filter_query,
-            group_by=[
-                mm_schemas.WriterEvent.APPLICATION_NAME,
-            ],
-            preform_agg_columns=[mm_schemas.WriterEvent.ENDPOINT_ID],
-            agg_funcs=["count"],
+        def _get_application_endpoints_records(super_table: str) -> pd.DataFrame:
+            return self._get_records(
+                table=super_table,
+                start=start,
+                end=end,
+                timestamp_column=mm_schemas.WriterEvent.END_INFER_TIME,
+                columns=[
+                    mm_schemas.WriterEvent.APPLICATION_NAME,
+                    mm_schemas.EventFieldType.ENDPOINT_ID,
+                ],
+                filter_query=filter_query,
+                group_by=[
+                    mm_schemas.WriterEvent.APPLICATION_NAME,
+                    mm_schemas.EventFieldType.ENDPOINT_ID,
+                ],
+                preform_agg_columns=[mm_schemas.ResultData.RESULT_VALUE],
+                agg_funcs=["last"],
+            )
+
+        df_results = _get_application_endpoints_records(
+            super_table=self.tables[
+                mm_schemas.TDEngineSuperTables.APP_RESULTS
+            ].super_table
         )
-        if df.empty:
+        df_metrics = _get_application_endpoints_records(
+            super_table=self.tables[mm_schemas.TDEngineSuperTables.METRICS].super_table
+        )
+
+        combined_df = pd.concat([df_results, df_metrics]).drop_duplicates()
+        if combined_df.empty:
             return {}
+        grouped_df = combined_df.groupby(
+            mm_schemas.WriterEvent.APPLICATION_NAME
+        ).count()
+
         # Convert DataFrame to a dictionary
         return {
-            row[mm_schemas.WriterEvent.APPLICATION_NAME]: row["count(endpoint_id)"]
-            for _, row in df.iterrows()
+            app_name: row[mm_schemas.WriterEvent.ENDPOINT_ID]
+            for app_name, row in grouped_df.iterrows()
         }
 
     def get_metrics_metadata(
