@@ -854,7 +854,7 @@ class MonitoringDeployment:
             raise mlrun.errors.MLRunNotFoundError(
                 f"Model monitoring function '{name}' not found in project '{self.project}'."
             )
-
+        print("[EYAL]: function_summary before return", function_summary)
         return function_summary[0]
 
     def _get_function_summary_infra(
@@ -1001,6 +1001,7 @@ class MonitoringDeployment:
                 function_summary.stats["processed_model_endpoints"] = (
                     processed_model_endpoints_dict.get(function_summary.name, 0)
                 )
+                print("[EYAL]: function summary after processed", function_summary)
             function_summaries_list.append(function_summary)
         return function_summaries_list
 

@@ -1274,7 +1274,7 @@ class V3IOTSDBConnector(TSDBConnector):
         start: datetime,
         end: datetime,
         application_names: Optional[Union[str, list[str]]] = None,
-    ) -> dict[str, int]:
+    ) -> dict:
         """
         Count the number of processed model endpoints within a given time range for specific applications.
 
@@ -1285,4 +1285,12 @@ class V3IOTSDBConnector(TSDBConnector):
 
         :return:                   The count of processed model endpoints.
         """
-        pass
+
+        filter_query = ""
+
+        if application_names:
+            filter_query = self._generate_filter_query(
+                filter_key=mm_schemas.ApplicationEvent.APPLICATION_NAME,
+                filter_values=application_names,
+            )
+
