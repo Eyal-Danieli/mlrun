@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from collections.abc import Iterator
 from contextlib import AbstractContextManager
 from contextlib import nullcontext as does_not_raise
@@ -25,6 +24,7 @@ import pytest
 
 import mlrun
 from mlrun.common.schemas.model_monitoring import ResultKindApp, ResultStatusApp
+from mlrun.datastore.datastore_profile import DatastoreProfileKafkaSource
 from mlrun.model_monitoring.applications import (
     ModelMonitoringApplicationBase,
     ModelMonitoringApplicationMetric,
@@ -101,9 +101,12 @@ class TestEvaluate:
     @staticmethod
     @pytest.fixture(autouse=True)
     def _set_project() -> Iterator[None]:
-        project = mlrun.get_or_create_project("test")
-        with patch("mlrun.db.nopdb.NopDB.get_project", Mock(return_value=project)):
-            yield
+        project = mlrun.get_or_create_project("test", allow_cross_project=True)
+        with patch.object(
+            project, "get_function", Mock(side_effect=mlrun.errors.MLRunNotFoundError)
+        ):
+            with patch("mlrun.db.nopdb.NopDB.get_project", Mock(return_value=project)):
+                yield
 
     @staticmethod
     def test_local_no_params() -> None:
@@ -178,6 +181,89 @@ class TestEvaluate:
         assert (
             "Read the sample data" in captured.out
         ), "The expected log message was not found in the captured output"
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("endpoints", "start", "end", "run_local", "write_output", "error_msg"),
+        [
+            (
+                [("ep-name", "ep-uid")],
+                datetime(2025, 5, 3),
+                datetime(2025, 5, 4),
+                False,
+                True,
+                "`stream_profile` is relevant only when running locally",
+            ),
+            (
+                [("ep-name", "ep-uid")],
+                datetime(2025, 5, 3),
+                datetime(2025, 5, 4),
+                True,
+                False,
+                "`stream_profile` is relevant only when writing the outputs",
+            ),
+            (
+                None,
+                datetime(2025, 5, 3),
+                datetime(2025, 5, 4),
+                False,
+                True,
+                "Custom `start` and `end` times .+ supported only with endpoints data",
+            ),
+            (
+                None,
+                None,
+                None,
+                False,
+                False,
+                "or passing `stream_profile` are supported only with endpoints data",
+            ),
+        ],
+    )
+    def test_invalid_params(
+        endpoints: Optional[list[tuple[str, str]]],
+        start: Optional[datetime],
+        end: Optional[datetime],
+        run_local: bool,
+        write_output: bool,
+        error_msg: str,
+    ) -> None:
+        with pytest.raises(mlrun.errors.MLRunValueError, match=error_msg):
+            ModelEndpointAccessApp.evaluate(
+                func_path=__file__,
+                endpoints=endpoints,
+                start=start,
+                end=end,
+                run_local=run_local,
+                write_output=write_output,
+                stream_profile=DatastoreProfileKafkaSource(
+                    name="should-not-be-passed-on-remote",
+                    brokers=["broker-address:9092"],
+                    topics=[],
+                ),
+            )
+
+    @staticmethod
+    def test_invalid_infra(capsys: pytest.CaptureFixture) -> None:
+        ModelEndpointAccessApp.evaluate(
+            func_path=__file__,
+            endpoints=[("ep-name", "ep-uid")],
+            start=datetime(2025, 5, 3),
+            end=datetime(2025, 5, 4),
+            run_local=True,
+            write_output=True,
+            stream_profile=DatastoreProfileKafkaSource(
+                name="should-not-be-passed-on-remote",
+                brokers=["broker-address:9092"],
+                topics=[],
+            ),
+        )
+        captured = capsys.readouterr()
+        assert (
+            "Writing outputs to the databases is blocked as the model monitoring infrastructure is disabled.\n"
+            "To unblock, enable model monitoring with `project.enable_model_monitoring()`."
+            in captured.out
+        ), "The error message is different than expected or was not captured"
 
 
 @pytest.mark.parametrize(
@@ -372,7 +458,17 @@ class TestToJob:
 
 
 @pytest.mark.parametrize(
-    "endpoints", ["model-ep-1", ["model-ep-1"], [("model-ep-1", "model-ep-1-uid")]]
+    "endpoints",
+    [
+        "2e312eb7-bbcc-4752-9140-be9e9395fc13",
+        ["2e312eb7-bbcc-4752-9140-be9e9395fc13"],
+        [
+            (
+                "2e312eb7-bbcc-4752-9140-be9e9395fc13",
+                "2e312eb7-bbcc-4752-9140-be9e9395fc13",
+            )
+        ],
+    ],
 )
 def test_handle_endpoints_type_evaluate(
     rundb_mock, endpoints: Union[str, list[str], list[tuple]]
@@ -382,4 +478,9 @@ def test_handle_endpoints_type_evaluate(
         project, endpoints
     )
 
-    assert endpoints_output == [("model-ep-1", "model-ep-1-uid")]
+    assert endpoints_output == [
+        (
+            "2e312eb7-bbcc-4752-9140-be9e9395fc13",
+            "2e312eb7-bbcc-4752-9140-be9e9395fc13",
+        )
+    ]

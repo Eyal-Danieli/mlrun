@@ -29,12 +29,13 @@ MLRUN_DOCKER_REGISTRY ?=
 MLRUN_NO_CACHE ?=
 MLRUN_ML_DOCKER_IMAGE_NAME_PREFIX ?= ml-
 # do not specify the patch version so that we can easily upgrade it when needed - it is determined by the base image
-# mainly used for mlrun, base and mlrun-gpu. mlrun API version >= 1.3.0 should always have python 3.9
+# mainly used for mlrun and mlrun-gpu. mlrun API version >= 1.3.0 should always have python 3.9
 MLRUN_PYTHON_VERSION ?= 3.11
+PYTHON_VERSION ?= $(shell python --version)
 MLRUN_SKIP_COMPILE_SCHEMAS ?=
 INCLUDE_PYTHON_VERSION_SUFFIX ?=
 MLRUN_PIP_VERSION ?= 25.0.0
-MLRUN_UV_VERSION ?= 0.5.13
+MLRUN_UV_VERSION ?= 0.7.14
 MLRUN_UV_IMAGE ?= ghcr.io/astral-sh/uv:$(MLRUN_UV_VERSION)
 MLRUN_CACHE_DATE ?= $(shell date +%s)
 # empty by default, can be set to something like "tag-name" which will cause to:
@@ -80,7 +81,7 @@ PRINT_COVERAGE_REPORT = if [ "$(RUN_COVERAGE)" = "true" ]; then \
 	fi
 
 # Verify the mount point to avoid deleting essential paths
-SETUP_COVERAGE_MOUNTING = if [[ "$(RUN_COVERAGE)" == "true" ]]; then \
+SETUP_COVERAGE_MOUNTING = if [ "$(RUN_COVERAGE)" = "true" ]; then \
 		case "$$COVERAGE_MOUNT_PATH" in /tmp/coverage_reports/*) \
 			rm -rf $$COVERAGE_MOUNT_PATH && \
 			mkdir -p $$COVERAGE_MOUNT_PATH; \
@@ -94,7 +95,6 @@ SETUP_COVERAGE_MOUNTING = if [[ "$(RUN_COVERAGE)" == "true" ]]; then \
 # THIS BLOCK IS FOR COMPUTED VARIABLES
 MLRUN_DOCKER_IMAGE_PREFIX := $(if $(MLRUN_DOCKER_REGISTRY),$(strip $(MLRUN_DOCKER_REGISTRY))$(MLRUN_DOCKER_REPO),$(MLRUN_DOCKER_REPO))
 MLRUN_CACHE_DOCKER_IMAGE_PREFIX := $(if $(MLRUN_DOCKER_CACHE_FROM_REGISTRY),$(strip $(MLRUN_DOCKER_CACHE_FROM_REGISTRY))$(MLRUN_DOCKER_REPO),$(MLRUN_DOCKER_REPO))
-MLRUN_DOCKER_CACHE_FROM_FLAG :=
 # if MLRUN_NO_CACHE passed we don't want to use cache, this is mainly used for cleaner if statements
 MLRUN_USE_CACHE := $(if $(MLRUN_NO_CACHE),,true)
 MLRUN_DOCKER_NO_CACHE_FLAG := $(if $(MLRUN_NO_CACHE),--no-cache,)
@@ -134,6 +134,11 @@ endif
 
 # Change to `--upgrade-package <package-name>` to upgrade only a specific package
 MLRUN_UV_UPGRADE_FLAG ?= --upgrade
+
+# absolute path to this Makefile
+THIS_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
+# its directory
+ROOT_DIR       := $(dir   $(THIS_MAKEFILE))
 
 .PHONY: help
 help: ## Display available commands
@@ -176,7 +181,14 @@ install-docs-requirements: ## Install all requirements needed for compiling mlru
 
 .PHONY: install-conda-requirements
 install-conda-requirements: ## Install all requirements needed for development with specific conda packages for arm64
-	conda install --yes --file conda-arm64-requirements.txt
+ifeq ($(findstring 3.11.,$(PYTHON_VERSION)),3.11.)
+	conda install --yes --file conda-arm64-requirements-python311.txt
+else ifeq ($(findstring 3.9.,$(PYTHON_VERSION)),3.9.)
+	conda install --yes --file conda-arm64-requirements-python39.txt
+else
+	@echo "Unsupported Python version: $(PYTHON_VERSION)" >&2
+	@exit 1
+endif
 	make install-requirements
 
 .PHONY: install-complete-requirements
@@ -251,7 +263,6 @@ DEFAULT_DOCKER_IMAGES_RULES = \
 	mlrun-gpu \
 	mlrun-kfp \
 	jupyter \
-	base \
 	log-collector
 
 .PHONY: docker-images
@@ -390,35 +401,6 @@ prebake-mlrun-gpu: ## Build prebake mlrun GPU based docker image
 .PHONY: push-prebake-mlrun-gpu
 push-prebake-mlrun-gpu: ## Push prebake mlrun GPU based docker image
 	docker push $(MLRUN_GPU_PREBAKED_IMAGE_NAME_TAGGED)
-
-MLRUN_BASE_IMAGE_NAME := $(MLRUN_DOCKER_IMAGE_PREFIX)/$(MLRUN_ML_DOCKER_IMAGE_NAME_PREFIX)base
-MLRUN_BASE_CACHE_IMAGE_NAME := $(MLRUN_CACHE_DOCKER_IMAGE_PREFIX)/$(MLRUN_ML_DOCKER_IMAGE_NAME_PREFIX)base
-MLRUN_BASE_IMAGE_NAME_TAGGED := $(MLRUN_BASE_IMAGE_NAME):$(MLRUN_DOCKER_TAG)$(MLRUN_PYTHON_VERSION_SUFFIX)
-MLRUN_BASE_CACHE_IMAGE_NAME_TAGGED := $(MLRUN_BASE_CACHE_IMAGE_NAME):$(MLRUN_DOCKER_CACHE_FROM_TAG)$(MLRUN_PYTHON_VERSION_SUFFIX)
-MLRUN_BASE_IMAGE_DOCKER_CACHE_FROM_FLAG := $(if $(and $(MLRUN_DOCKER_CACHE_FROM_TAG),$(MLRUN_USE_CACHE)),--cache-from $(strip $(MLRUN_BASE_CACHE_IMAGE_NAME_TAGGED)),)
-MLRUN_BASE_CACHE_IMAGE_PUSH_COMMAND := $(if $(and $(MLRUN_DOCKER_CACHE_FROM_TAG),$(MLRUN_PUSH_DOCKER_CACHE_IMAGE)),docker tag $(MLRUN_BASE_IMAGE_NAME_TAGGED) $(MLRUN_BASE_CACHE_IMAGE_NAME_TAGGED) && docker push $(MLRUN_BASE_CACHE_IMAGE_NAME_TAGGED),)
-DEFAULT_IMAGES += $(MLRUN_BASE_IMAGE_NAME_TAGGED)
-
-.PHONY: base
-base: pull-cache update-version-file ## Build base docker image
-	docker build \
-		--file dockerfiles/base/Dockerfile \
-		--build-arg MLRUN_PYTHON_VERSION=$(MLRUN_PYTHON_VERSION) \
-		--build-arg MLRUN_ANACONDA_PYTHON_DISTRIBUTION=$(MLRUN_ANACONDA_PYTHON_DISTRIBUTION) \
-		--build-arg MLRUN_PIP_VERSION=$(MLRUN_PIP_VERSION) \
-		--build-arg MLRUN_UV_IMAGE=$(MLRUN_UV_IMAGE) \
-		$(MLRUN_DOCKER_CACHE_FROM_FLAG) \
-		$(MLRUN_DOCKER_NO_CACHE_FLAG) \
-		--tag $(MLRUN_BASE_IMAGE_NAME_TAGGED) .
-
-.PHONY: push-base
-push-base: base ## Push base docker image
-	docker push $(MLRUN_BASE_IMAGE_NAME_TAGGED)
-	$(MLRUN_BASE_CACHE_IMAGE_PUSH_COMMAND)
-
-.PHONY: pull-base
-pull-base: ## Pull base docker image
-	docker pull $(MLRUN_BASE_IMAGE_NAME_TAGGED)
 
 MLRUN_JUPYTER_IMAGE_NAME := $(MLRUN_DOCKER_IMAGE_PREFIX)/jupyter
 MLRUN_JUPYTER_CACHE_IMAGE_NAME := $(MLRUN_CACHE_DOCKER_IMAGE_PREFIX)/jupyter
@@ -559,20 +541,20 @@ build-test-system: compile-schemas update-version-file ## Build system tests doc
 
 .PHONY: package-wheel
 package-wheel: clean update-version-file ## Build python package wheel
-	python -m build --wheel
+	uv build
 
 .PHONY: publish-package
 publish-package: package-wheel ## Publish python package wheel
-	python -m twine upload dist/mlrun-*.whl
+	uv publish
 
 .PHONY: test-publish
 test-publish: package-wheel ## Test python package publishing
-	python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/mlrun-*.whl
+	uv publish --publish-url https://test.pypi.org/legacy/
 
 .PHONY: clean
 clean: ## Clean python package build artifacts
 	rm -rf build dist mlrun.egg-info
-	find . -name '*.pyc' -not -path "./venv" -exec rm {} \;
+	find . -type f -name '*.pyc' ! -path './venv/*' -delete
 
 .PHONY: test-dockerized
 test-dockerized: build-test ## Run mlrun tests in docker container
@@ -678,16 +660,22 @@ test-migrations-dockerized: build-test ## Run mlrun db migrations tests in docke
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		-e RUN_COVERAGE=$(RUN_COVERAGE) \
 		-v $$COVERAGE_MOUNT_PATH:/mlrun/tests/coverage_reports \
-		$(MLRUN_TEST_IMAGE_NAME_TAGGED) make test-migrations
+		$(MLRUN_TEST_IMAGE_NAME_TAGGED) make RUN_COVERAGE=true test-migrations
 
 .PHONY: test-migrations
 test-migrations: clean ## Run mlrun db migrations tests
 	COVERAGE_FILE=$(COVERAGE_FILE) && \
 	COVERAGE_FILE=$${COVERAGE_FILE:-"tests/coverage_reports/migration_tests.coverage"} && \
+	export COVERAGE_FILE && \
 	$(SETUP_COVERAGE) && \
-	COVERAGE_ADDITION="$(COVERAGE_ADDITION)" ./automation/scripts/test_migration_mysql.sh && \
-	$(PRINT_COVERAGE_REPORT) ;
-
+	bash -c 'set -euo pipefail; \
+	  python -u $(COVERAGE_ADDITION) -m pytest -vvv \
+	    --capture=no --disable-warnings --durations=100 \
+	    -rf "$(ROOT_DIR)/server/py/services/api/migrations/tests" \
+	    2>&1 | tee migration_tests.log' ; \
+	exit_code=$$? ; \
+	$(PRINT_COVERAGE_REPORT) ; \
+	exit $$exit_code
 
 .PHONY: test-system-dockerized
 test-system-dockerized: build-test-system ## Run mlrun system tests in docker container
@@ -944,27 +932,13 @@ ifdef MLRUN_DOCKER_CACHE_FROM_TAG
 	targets="$(subst push-,,$(MAKECMDGOALS))" ; \
 	for image_name in $$targets; do \
 		tag=$(MLRUN_DOCKER_CACHE_FROM_TAG)$(MLRUN_PYTHON_VERSION_SUFFIX) ; \
-		case "$$image_name" in \
-			*base*) image_name=$(MLRUN_ML_DOCKER_IMAGE_NAME_PREFIX)$$image_name ;; \
-		esac; \
 		docker pull $(MLRUN_CACHE_DOCKER_IMAGE_PREFIX)/$$image_name:$$tag || true ; \
 	done;
-    MLRUN_DOCKER_CACHE_FROM_FLAG := $(MLRUN_BASE_IMAGE_DOCKER_CACHE_FROM_FLAG)
 endif
 
-.PHONY: verify-uv-version
-verify-uv-version:
-	@{ \
-	uv_version=$$(uv version | cut -d' ' -f2); \
-	result=$$(python -m semver compare $$uv_version $(MLRUN_UV_VERSION)); \
-	if [ "$$result" -eq -1 ]; then \
-	  echo "Error: The running uv version ($$uv_version) is outdated. Upgrade uv to version $(MLRUN_UV_VERSION)."; \
-	  exit 1; \
-	fi; \
-	}
 
 .PHONY: upgrade-mlrun-api-deps-lock
-upgrade-mlrun-api-deps-lock: verify-uv-version ## Upgrade mlrun-api locked requirements file
+upgrade-mlrun-api-deps-lock: ## Upgrade mlrun-api locked requirements file
 	uv pip compile \
 		requirements.txt \
 		extras-requirements.txt \
@@ -974,7 +948,7 @@ upgrade-mlrun-api-deps-lock: verify-uv-version ## Upgrade mlrun-api locked requi
 		--output-file dockerfiles/mlrun-api/locked-requirements.txt
 
 .PHONY: upgrade-mlrun-mlrun-deps-lock
-upgrade-mlrun-mlrun-deps-lock: verify-uv-version ## Upgrade mlrun-mlrun locked requirements file
+upgrade-mlrun-mlrun-deps-lock: ## Upgrade mlrun-mlrun locked requirements file
 	uv pip compile \
 		requirements.txt \
 		extras-requirements.txt \
@@ -982,27 +956,17 @@ upgrade-mlrun-mlrun-deps-lock: verify-uv-version ## Upgrade mlrun-mlrun locked r
 		$(MLRUN_UV_UPGRADE_FLAG) \
 		--output-file dockerfiles/mlrun/locked-requirements.txt
 
-.PHONY: upgrade-mlrun-base-deps-lock
-upgrade-mlrun-base-deps-lock: verify-uv-version ## Upgrade mlrun-base locked requirements file
-	uv pip compile \
-		requirements.txt \
-		extras-requirements.txt \
-		dockerfiles/base/requirements.txt \
-		$(MLRUN_UV_UPGRADE_FLAG) \
-		--output-file dockerfiles/base/locked-requirements.txt
-
 .PHONY: upgrade-mlrun-gpu-deps-lock
-upgrade-mlrun-gpu-deps-lock: verify-uv-version ## Upgrade mlrun-gpu locked requirements file
+upgrade-mlrun-gpu-deps-lock: ## Upgrade mlrun-gpu locked requirements file
 	uv pip compile \
 		requirements.txt \
 		extras-requirements.txt \
 		dockerfiles/mlrun/requirements.txt \
-		dockerfiles/base/requirements.txt \
 		$(MLRUN_UV_UPGRADE_FLAG) \
 		--output-file dockerfiles/gpu/locked-requirements.txt
 
 .PHONY: upgrade-mlrun-jupyter-deps-lock
-upgrade-mlrun-jupyter-deps-lock: verify-uv-version ## Upgrade mlrun-jupyter locked requirements file
+upgrade-mlrun-jupyter-deps-lock: ## Upgrade mlrun-jupyter locked requirements file
 	uv pip compile \
 		requirements.txt \
 		extras-requirements.txt \
@@ -1012,18 +976,18 @@ upgrade-mlrun-jupyter-deps-lock: verify-uv-version ## Upgrade mlrun-jupyter lock
 		--output-file dockerfiles/jupyter/locked-requirements.txt
 
 .PHONY: upgrade-mlrun-test-deps-lock
-upgrade-mlrun-test-deps-lock: verify-uv-version ## Upgrade mlrun test locked requirements file
+upgrade-mlrun-test-deps-lock: ## Upgrade mlrun test locked requirements file
 	uv pip compile \
 		requirements.txt \
 		extras-requirements.txt \
 		dockerfiles/mlrun-api/requirements.txt \
-		dockerfiles/mlrun-kfp/requirements.txt \
+		dockerfiles/test/requirements.txt \
 		dev-requirements.txt \
 		$(MLRUN_UV_UPGRADE_FLAG) \
 		--output-file dockerfiles/test/locked-requirements.txt
 
 .PHONY: upgrade-mlrun-system-test-deps-lock
-upgrade-mlrun-system-test-deps-lock: verify-uv-version ## Upgrade mlrun system test locked requirements file
+upgrade-mlrun-system-test-deps-lock: ## Upgrade mlrun system test locked requirements file
 	uv pip compile \
 		requirements.txt \
 		extras-requirements.txt \
@@ -1033,8 +997,7 @@ upgrade-mlrun-system-test-deps-lock: verify-uv-version ## Upgrade mlrun system t
 		$(MLRUN_UV_UPGRADE_FLAG) \
 		--output-file dockerfiles/test-system/locked-requirements.txt
 
-
-upgrade-mlrun-kfp-deps-lock: verify-uv-version ## Upgrade mlrun-kfp locked requirements file
+upgrade-mlrun-kfp-deps-lock: ## Upgrade mlrun-kfp locked requirements file
 	uv pip compile \
 		requirements.txt \
 		dockerfiles/mlrun-kfp/requirements.txt \
@@ -1043,16 +1006,16 @@ upgrade-mlrun-kfp-deps-lock: verify-uv-version ## Upgrade mlrun-kfp locked requi
 		--output-file dockerfiles/mlrun-kfp/locked-requirements.txt
 
 .PHONY: upgrade-mlrun-deps-lock
-upgrade-mlrun-deps-lock: verify-uv-version ## Upgrade mlrun-* locked requirements file
+upgrade-mlrun-deps-lock: ## Upgrade mlrun-* locked requirements file
 	@$(MAKE) -j \
 		upgrade-mlrun-mlrun-deps-lock \
 		upgrade-mlrun-api-deps-lock \
 		upgrade-mlrun-jupyter-deps-lock \
-		upgrade-mlrun-base-deps-lock \
 		upgrade-mlrun-gpu-deps-lock \
 		upgrade-mlrun-kfp-deps-lock \
 		upgrade-mlrun-test-deps-lock \
 		upgrade-mlrun-system-test-deps-lock
+
 
 .PHONY: coverage-combine
 coverage-combine: ## Combine all coverage reports, ignoring errors like missing or corrupted source files

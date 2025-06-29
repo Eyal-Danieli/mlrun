@@ -29,7 +29,6 @@ import kafka.errors
 import nuclio
 import sqlalchemy.orm
 import v3io.dataplane
-import v3io.dataplane.response
 from fastapi import BackgroundTasks
 from fastapi.concurrency import run_in_threadpool
 
@@ -395,6 +394,13 @@ class MonitoringDeployment:
                 raise exc
 
         function = stream_source.add_nuclio_trigger(function)
+        if nuclio_annotations := profile_attributes.get("nuclio_annotations"):
+            if not isinstance(nuclio_annotations, dict):
+                raise mlrun.errors.MLRunInvalidArgumentTypeError(
+                    "The Kafka datastore profile includes an invalid `nuclio_annotations` configuration. "
+                    f"Expected a dictionary or `None`, but received: {nuclio_annotations = }"
+                )
+            function.with_annotations(nuclio_annotations)
         function.spec.min_replicas = stream_args.kafka.min_replicas
         function.spec.max_replicas = stream_args.kafka.max_replicas
 
@@ -1147,6 +1153,7 @@ class MonitoringDeployment:
             MonitoringDeployment.delete_monitoring_function,
             mlrun.mlconf.background_tasks.default_timeouts.operations.delete_function,
             background_task_name,
+            None,
             db_session,
             project_name,
             function_name,
@@ -2044,6 +2051,7 @@ class MonitoringDeployment:
             MonitoringDeployment.create_model_endpoints,
             mlrun.mlconf.background_tasks.default_timeouts.operations.model_endpoint_creation,
             background_task_name,
+            None,
             function_name,
             function_tag,
             project_name,

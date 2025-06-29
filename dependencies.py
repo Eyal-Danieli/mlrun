@@ -19,10 +19,6 @@ def base_requirements() -> list[str]:
     return list(_load_dependencies_from_file("requirements.txt"))
 
 
-def dev_requirements() -> list[str]:
-    return list(_load_dependencies_from_file("dev-requirements.txt"))
-
-
 def extra_requirements() -> dict[str, list[str]]:
     # NOTE:
     #     - These are tested in `automation/package_test/test.py`. If you modify these, make sure to change the
@@ -65,9 +61,9 @@ def extra_requirements() -> dict[str, list[str]]:
             "avro~=1.11",
         ],
         "redis": ["redis~=4.3"],
-        "mlflow": ["mlflow~=2.16"],
+        "mlflow": ["mlflow~=2.22"],
         "databricks-sdk": ["databricks-sdk~=0.20.0"],
-        "sqlalchemy": ["sqlalchemy~=1.4"],
+        "sqlalchemy": ["sqlalchemy~=2.0"],
         "dask": [
             # dask 2023 does not work on python 3.11
             # dask 2024 requires dependencies that current mlrun with 3.9 cannot support
@@ -79,6 +75,7 @@ def extra_requirements() -> dict[str, list[str]]:
         "alibaba-oss": ["ossfs==2023.12.0", "oss2==2.18.1"],
         "tdengine": ["taos-ws-py==0.3.2"],
         "snowflake": ["snowflake-connector-python~=3.7"],
+        "openai": ["openai~=1.88"],
     }
 
     api_deps = list(

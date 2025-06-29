@@ -18,13 +18,13 @@ import pytest
 
 import mlrun.db.factory
 import mlrun.errors
-from mlrun.common.db.sql_session import _init_engine, create_session
 from mlrun.config import config
 from mlrun.db.base import RunDBInterface
 from tests.conftest import new_run, run_now
 
 import framework.utils.singletons.db
 import framework.utils.singletons.project_member
+from framework.db.sqldb.sql_session import _init_engine, create_session
 from framework.rundb import sqldb
 from framework.utils.singletons.db import initialize_db
 from services.api.initial_data import init_data
@@ -90,10 +90,10 @@ async def test_runs(db: RunDBInterface):
     assert 2 == len(runs), "labels length"
     assert {1, 2} == {r["x"] for r in runs}, "xs labels"
 
-    runs = db.list_runs(state=["s1", "s2"], project=project)
+    runs = db.list_runs(states=["s1", "s2"], project=project)
     assert 3 == len(runs), "state length"
 
-    runs = db.list_runs(state="s2", project=project)
+    runs = db.list_runs(states=["s2"], project=project)
     assert 1 == len(runs), "state length"
     run3["status"] = updates["status"]
     assert run3 == runs[0], "state run"

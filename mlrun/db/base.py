@@ -97,9 +97,6 @@ class RunDBInterface(ABC):
         uid: Optional[Union[str, list[str]]] = None,
         project: Optional[str] = None,
         labels: Optional[Union[str, dict[str, Optional[str]], list[str]]] = None,
-        state: Optional[
-            mlrun.common.runtimes.constants.RunStates
-        ] = None,  # Backward compatibility
         states: Optional[list[mlrun.common.runtimes.constants.RunStates]] = None,
         sort: bool = True,
         iter: bool = False,
@@ -470,22 +467,6 @@ class RunDBInterface(ABC):
     ) -> mlrun.common.schemas.FeaturesOutputV2:
         pass
 
-    # TODO: remove in 1.10.0
-    @deprecated(
-        version="1.7.0",
-        reason="'list_entities' will be removed in 1.10.0, use 'list_entities_v2' instead",
-        category=FutureWarning,
-    )
-    @abstractmethod
-    def list_entities(
-        self,
-        project: str,
-        name: Optional[str] = None,
-        tag: Optional[str] = None,
-        labels: Optional[Union[str, dict[str, Optional[str]], list[str]]] = None,
-    ) -> mlrun.common.schemas.EntitiesOutput:
-        pass
-
     @abstractmethod
     def list_entities_v2(
         self,
@@ -654,6 +635,16 @@ class RunDBInterface(ABC):
             str, mlrun.common.schemas.SecretProviderName
         ] = mlrun.common.schemas.SecretProviderName.kubernetes,
         secrets: Optional[dict] = None,
+    ):
+        pass
+
+    @abstractmethod
+    def retry_pipeline(
+        self,
+        run_id: str,
+        project: str,
+        namespace: Optional[str] = None,
+        timeout: int = 30,
     ):
         pass
 
@@ -1051,6 +1042,13 @@ class RunDBInterface(ABC):
         func_url: Optional[str] = None,
         function: "mlrun.runtimes.BaseRuntime" = None,
     ):
+        pass
+
+    def get_project_background_task(
+        self,
+        project: str,
+        name: str,
+    ) -> mlrun.common.schemas.BackgroundTask:
         pass
 
     @abstractmethod

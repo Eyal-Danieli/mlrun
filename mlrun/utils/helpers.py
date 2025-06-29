@@ -84,10 +84,6 @@ DEFAULT_TIME_PARTITIONS = ["year", "month", "day", "hour"]
 DEFAULT_TIME_PARTITIONING_GRANULARITY = "hour"
 
 
-class OverwriteBuildParamsWarning(FutureWarning):
-    pass
-
-
 class StorePrefix:
     """map mlrun store objects to prefixes"""
 
@@ -915,7 +911,7 @@ def enrich_image_url(
     if is_mlrun_image and "mlrun/ml-base" in image_url:
         if tag:
             if mlrun.utils.helpers.validate_component_version_compatibility(
-                "mlrun-client", "1.10.0", mlrun_client_version=tag
+                "mlrun-client", "1.10.0-rc0", mlrun_client_version=tag
             ):
                 warnings.warn(
                     "'mlrun/ml-base' image is deprecated in 1.10.0 and will be removed in 1.12.0, "
@@ -2125,6 +2121,23 @@ def join_urls(base_url: Optional[str], path: Optional[str]) -> str:
     return f"{base_url.rstrip('/')}/{path.lstrip('/')}" if path else base_url
 
 
+def warn_on_deprecated_image(image: Optional[str]):
+    """
+    Warn if the provided image is the deprecated 'mlrun/ml-base' image.
+    This image is deprecated as of 1.10.0 and will be removed in 1.12.0.
+    """
+    deprecated_images = ["mlrun/ml-base"]
+    if image and any(
+        image in deprecated_image for deprecated_image in deprecated_images
+    ):
+        warnings.warn(
+            "'mlrun/ml-base' image is deprecated in 1.10.0 and will be replaced by 'mlrun/mlrun'. "
+            "This behavior will be removed in 1.12.0 ",
+            # TODO: Remove this in 1.12.0
+            FutureWarning,
+        )
+
+
 class Workflow:
     @staticmethod
     def get_workflow_steps(
@@ -2294,6 +2307,7 @@ class Workflow:
         workflow_id: str,
     ) -> typing.Optional[mlrun_pipelines.models.PipelineManifest]:
         kfp_client = mlrun_pipelines.utils.get_client(
+            logger=logger,
             url=mlrun.mlconf.kfp_url,
             namespace=mlrun.mlconf.namespace,
         )

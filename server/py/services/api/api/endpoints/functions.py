@@ -346,6 +346,7 @@ async def start_function(
         _start_function_wrapper,
         background_timeout,
         None,
+        None,
         # args for _start_function
         function,
         auth_info,
@@ -457,7 +458,9 @@ def _handle_job_deploy_status(
 ):
     # job deploy status
     response_headers = {}
-    function_state = get_in(fn, "status.state", "")
+    function_state = (
+        get_in(fn, "status.state", "") or mlrun.common.schemas.FunctionState.initialized
+    )
     pod = get_in(fn, "status.build_pod", "")
     image = get_in(fn, "spec.build.image", "")
     out = b""

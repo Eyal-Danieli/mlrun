@@ -43,6 +43,11 @@ import mlrun.feature_store
 import mlrun.feature_store as fstore
 import mlrun.model_monitoring
 import mlrun.model_monitoring.api
+import mlrun.serving
+from mlrun.common.schemas.model_monitoring import ResultKindApp
+from mlrun.common.schemas.model_monitoring.model_endpoints import (
+    ModelEndpointMonitoringMetric,
+)
 from mlrun.datastore.datastore_profile import (
     DatastoreProfile,
     DatastoreProfileKafkaSource,
@@ -515,20 +520,46 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
 
     @classmethod
     def _deploy_model_serving(
-        cls, with_training_set: bool
+        cls,
+        with_training_set: bool,
+        with_model_runner: bool = False,
     ) -> mlrun.runtimes.nuclio.serving.ServingRuntime:
-        serving_fn = typing.cast(
-            mlrun.runtimes.nuclio.serving.ServingRuntime,
-            mlrun.import_function(
-                "hub://v2_model_server",
+        if with_model_runner:
+            code_path = (
+                f"{str((Path(__file__).parent / 'assets').absolute())}/models.py"
+            )
+            serving_fn = mlrun.code_to_function(
+                name="model-serving",
+                kind="serving",
                 project=cls.project_name,
-                new_name="model-serving",
-            ),
-        )
-        serving_fn.add_model(
-            f"{cls.model_name}_{with_training_set}",
-            model_path=f"store://models/{cls.project_name}/{cls.model_name}_{with_training_set}:latest",
-        )
+                filename=code_path,
+            )
+            model_runner_step = mlrun.serving.ModelRunnerStep(
+                name="ModelRunner",
+                full_event=True,
+            )
+            model_runner_step.add_model(
+                endpoint_name=f"{cls.model_name}_{with_training_set}",
+                model_class="MyModel",
+                model_artifact=f"store://models/{cls.project_name}/{cls.model_name}_{with_training_set}:latest",
+                input_path="inputs",
+                result_path="outputs",
+            )
+            graph = serving_fn.set_topology("flow", engine="async")
+            graph.to(model_runner_step).respond()
+        else:
+            serving_fn = typing.cast(
+                mlrun.runtimes.nuclio.serving.ServingRuntime,
+                mlrun.import_function(
+                    "hub://v2_model_server",
+                    project=cls.project_name,
+                    new_name="model-serving",
+                ),
+            )
+            serving_fn.add_model(
+                f"{cls.model_name}_{with_training_set}",
+                model_path=f"store://models/{cls.project_name}/{cls.model_name}_{with_training_set}:latest",
+            )
         serving_fn.set_tracking()
         if cls.image is not None:
             serving_fn.spec.image = serving_fn.spec.build.image = cls.image
@@ -543,10 +574,13 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
         *,
         num_events: int,
         with_training_set: bool = True,
+        with_model_runner: bool = False,
     ) -> datetime:
         result = serving_fn.invoke(
-            f"v2/models/{cls.model_name}_{with_training_set}/infer",
-            json.dumps({"inputs": [[0.0] * cls.num_features] * num_events}),
+            path="/"
+            if with_model_runner
+            else f"v2/models/{cls.model_name}_{with_training_set}/infer",
+            body=json.dumps({"inputs": [[0.0] * cls.num_features] * num_events}),
         )
         assert isinstance(result, dict), "Unexpected result type"
         assert "outputs" in result, "Result should have 'outputs' key"
@@ -680,8 +714,10 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
         assert evidently_func_summary.stats["detected"] == 0
 
     @pytest.mark.parametrize("with_training_set", [True, False])
-    def test_app_flow(self, with_training_set: bool) -> None:
+    @pytest.mark.parametrize("with_model_runner", [True, False])
+    def test_app_flow(self, with_training_set: bool, with_model_runner: bool) -> None:
         self.project = typing.cast(mlrun.projects.MlrunProject, self.project)
+        self._log_model(with_training_set)
 
         for i in range(len(self.apps_data)):
             if "with_training_set" in self.apps_data[i].kwargs:
@@ -691,20 +727,27 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
         if not with_training_set and _DefaultDataDriftAppData in self.apps_data:
             self.apps_data.remove(_DefaultDataDriftAppData)
 
+        self._log_model(with_training_set=with_training_set)
+
         self._submit_controller_and_deploy_writer(
             deploy_histogram_data_drift_app=_DefaultDataDriftAppData in self.apps_data,
             # workaround for ML-5997
         )
         with concurrent.futures.ThreadPoolExecutor() as executor:
             executor.submit(self._set_and_deploy_monitoring_apps)
-            future = executor.submit(self._deploy_model_serving, with_training_set)
+            future = executor.submit(
+                self._deploy_model_serving, with_training_set, with_model_runner
+            )
 
         serving_fn = future.result()
         self._add_error_alert()
 
         time.sleep(5)
         last_request = self._infer(
-            serving_fn, num_events=self.num_events, with_training_set=with_training_set
+            serving_fn,
+            num_events=self.num_events,
+            with_training_set=with_training_set,
+            with_model_runner=with_model_runner,
         )
 
         self._infer_with_error(serving_fn, with_training_set=with_training_set)
@@ -723,9 +766,9 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
             feature_analysis=True,
             tsdb_metrics=True,
         )
-
+        # Model predict timestamp is slightly differ than storey timestamp
         assert (
-            mep.status.last_request == last_request
+            (mep.status.last_request - last_request) < timedelta(milliseconds=1)
         ), "The saved `last_request` in the model endpoint is different than the last result timestamp"
 
         self._test_v3io_records(
@@ -855,7 +898,10 @@ class TestRecordResults(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
 
         endpoint_id = self._record_results()
 
-        time.sleep(2.4 * self.app_interval_seconds)
+        time.sleep(
+            2 * self.app_interval_seconds
+            + mlrun.mlconf.model_endpoint_monitoring.parquet_batching_timeout_secs
+        )
 
         mep = mlrun.db.get_run_db().get_model_endpoint(
             name=f"{self.name_prefix}-test",
@@ -1250,6 +1296,14 @@ class TestMonitoredServings(TestMLRunSystemModelMonitoring):
         self, endpoint_name, feature_set_uri, model_dict
     ) -> dict[str, typing.Any]:
         serving_fn = self.project.get_function(self.function_name)
+        self._infer_by_endpoint(endpoint_name, model_dict, serving_fn)
+        time.sleep(
+            mlrun.mlconf.model_endpoint_monitoring.parquet_batching_timeout_secs + 20
+        )
+        return self._test_parquet(feature_set_uri, model_dict)
+
+    @staticmethod
+    def _infer_by_endpoint(endpoint_name, model_dict, serving_fn):
         data_point = model_dict.get("data_point")
         if endpoint_name == "img_one_to_one":
             data_point = [data_point]
@@ -1265,22 +1319,18 @@ class TestMonitoredServings(TestMLRunSystemModelMonitoring):
             f"v2/models/{endpoint_name}/infer",
             json.dumps({"inputs": [data_point, data_point]}),
         )
-        time.sleep(
-            mlrun.mlconf.model_endpoint_monitoring.parquet_batching_timeout_secs + 10
-        )
 
+    @staticmethod
+    def _test_parquet(feature_set_uri, model_dict):
         offline_response_df = ParquetTarget(
             name="temp",
             path=fstore.get_feature_set(feature_set_uri).spec.targets[0].path,
         ).as_df()
-
         is_schema_saved = set(model_dict.get("schema")).issubset(
             offline_response_df.columns
         )
         has_all_the_events = offline_response_df.shape[0] == 3
-
         return {
-            "model_name": endpoint_name,
             "is_schema_saved": is_schema_saved,
             "has_all_the_events": has_all_the_events,
             "df": offline_response_df,
@@ -1295,31 +1345,33 @@ class TestMonitoredServings(TestMLRunSystemModelMonitoring):
         )
         self._deploy_model_router(self.function_name)
 
-        futures = []
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            endpoints_list = mlrun.db.get_run_db().list_model_endpoints(
-                project=self.project_name, tsdb_metrics=True
+        endpoints_list = mlrun.db.get_run_db().list_model_endpoints(
+            project=self.project_name, tsdb_metrics=True
+        )
+        endpoints = endpoints_list.endpoints
+        assert len(endpoints) == 7
+        serving_fn = self.project.get_function(self.function_name)
+        for endpoint in endpoints:
+            self._infer_by_endpoint(
+                endpoint.metadata.name,
+                self.model_by_endpoint_name[endpoint.metadata.name],
+                serving_fn,
             )
-            endpoints = endpoints_list.endpoints
-            assert len(endpoints) == 7
-            for endpoint in endpoints:
-                future = executor.submit(
-                    self._test_endpoint,
-                    endpoint_name=endpoint.metadata.name,
-                    feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
-                    model_dict=self.model_by_endpoint_name[endpoint.metadata.name],
-                )
-                futures.append(future)
-
-        for future in concurrent.futures.as_completed(futures):
-            res_dict = future.result()
+        time.sleep(
+            mlrun.mlconf.model_endpoint_monitoring.parquet_batching_timeout_secs + 20
+        )
+        for endpoint in endpoints:
+            res_dict = self._test_parquet(
+                endpoint.spec.monitoring_feature_set_uri,
+                self.model_by_endpoint_name[endpoint.metadata.name],
+            )
             assert res_dict[
                 "is_schema_saved"
-            ], f"For {res_dict['model_name']} the schema of parquet is missing columns"
+            ], f"For {endpoint.metadata.name} the schema of parquet is missing columns"
 
             assert res_dict[
                 "has_all_the_events"
-            ], f"For {res_dict['model_name']} Not all the events were saved"
+            ], f"For {endpoint.metadata.name} Not all the events were saved"
 
     def test_tracking(self) -> None:
         self.function_name = "serving-1"
@@ -1369,11 +1421,11 @@ class TestMonitoredServings(TestMLRunSystemModelMonitoring):
         )
         assert res_dict[
             "is_schema_saved"
-        ], f"For {res_dict['model_name']} the schema of parquet is missing columns"
+        ], f"For {endpoint.metadata.name} the schema of parquet is missing columns"
 
         assert res_dict[
             "has_all_the_events"
-        ], f"For {res_dict['model_name']} Not all the events were saved"
+        ], f"For {endpoint.metadata.name} Not all the events were saved"
 
         for model_name, model_dict in self.test_models_tracking.items():
             self._deploy_model_serving(**model_dict, enable_tracking=False)
@@ -1544,7 +1596,8 @@ class TestAppJobModelEndpointData(TestMLRunSystemModelMonitoring):
             executor.submit(self._deploy_model_serving)
 
     @pytest.mark.parametrize("run_local", [False, True])
-    def test_count_app(self, run_local: bool) -> None:
+    @pytest.mark.parametrize("write_output", [True])
+    def test_count_app(self, run_local: bool, write_output: bool) -> None:
         # Set up the serving function with a model endpoint, and the necessary infrastructure
         self._setup_resources()
 
@@ -1595,6 +1648,7 @@ class TestAppJobModelEndpointData(TestMLRunSystemModelMonitoring):
                 model_endpoint.metadata.name,
             ],
         ]
+
         for i, endpoints in enumerate(endpoints_params):
             run_result = CountApp.evaluate(
                 func_path=str(Path(__file__).parent / "assets/application.py"),
@@ -1605,6 +1659,10 @@ class TestAppJobModelEndpointData(TestMLRunSystemModelMonitoring):
                 run_local=run_local,
                 image=self.image,
                 base_period=1,
+                write_output=write_output,
+                stream_profile=(
+                    self.mm_stream_profile if run_local and write_output else None
+                ),
             )
 
             # Test the state
@@ -1640,6 +1698,32 @@ class TestAppJobModelEndpointData(TestMLRunSystemModelMonitoring):
                 },
             ], "The outputs are different than expected"
 
+            if write_output:
+                # Test that the outputs were written in the database
+                db = typing.cast(mlrun.db.httpdb.HTTPRunDB, mlrun.get_run_db())
+                # Wait for the writer to get the data and write it
+                time.sleep(5)
+                metrics = db.get_model_endpoint_monitoring_metrics(
+                    project=self.project_name, endpoint_id=model_endpoint.metadata.uid
+                )
+                assert metrics == [
+                    ModelEndpointMonitoringMetric(
+                        project=self.project_name,
+                        app="CountApp",
+                        type="result",
+                        name="count",
+                        full_name=f"{self.project_name}.CountApp.result.count",
+                        kind=ResultKindApp.model_performance,
+                    ),
+                    ModelEndpointMonitoringMetric(
+                        project=self.project_name,
+                        app="mlrun-infra",
+                        type="metric",
+                        name="invocations",
+                        full_name=f"{self.project_name}.mlrun-infra.metric.invocations",
+                    ),
+                ], "The metrics from the database are different than expected"
+
 
 class TestBatchServingWithSampling(TestMLRunSystemModelMonitoring):
     """
@@ -1670,18 +1754,47 @@ class TestBatchServingWithSampling(TestMLRunSystemModelMonitoring):
         ).uri
 
     def _deploy_model_serving(
-        self, model_uri: str, sampling_percentage: typing.Optional[float] = None
+        self,
+        model_uri: str,
+        sampling_percentage: typing.Optional[float] = None,
+        with_model_runner: typing.Optional[bool] = False,
     ) -> mlrun.runtimes.nuclio.serving.ServingRuntime:
-        serving_fn = typing.cast(
-            mlrun.runtimes.nuclio.serving.ServingRuntime,
-            self.project.set_function(
-                "hub://v2_model_server",
+        if with_model_runner:
+            code_path = (
+                f"{str((Path(__file__).parent / 'assets').absolute())}/models.py"
+            )
+            serving_fn = mlrun.code_to_function(
                 name=self._serving_function_name_with_sample
                 if sampling_percentage
                 else self._serving_function_name_without_sample,
-            ),
-        )
-        serving_fn.add_model(self._model_name, model_path=model_uri)
+                kind="serving",
+                project=self.project_name,
+                filename=code_path,
+            )
+            model_runner_step = mlrun.serving.ModelRunnerStep(
+                name="ModelRunner",
+                full_event=True,
+            )
+            model_runner_step.add_model(
+                endpoint_name=self._model_name,
+                model_class="MyModel",
+                model_artifact=model_uri,
+                input_path="inputs",
+                result_path="outputs",
+            )
+            graph = serving_fn.set_topology("flow", engine="async")
+            graph.to(model_runner_step).respond()
+        else:
+            serving_fn = typing.cast(
+                mlrun.runtimes.nuclio.serving.ServingRuntime,
+                self.project.set_function(
+                    "hub://v2_model_server",
+                    name=self._serving_function_name_with_sample
+                    if sampling_percentage
+                    else self._serving_function_name_without_sample,
+                ),
+            )
+            serving_fn.add_model(self._model_name, model_path=model_uri)
         if sampling_percentage:
             serving_fn.set_tracking(sampling_percentage=sampling_percentage)
         else:
@@ -1692,22 +1805,27 @@ class TestBatchServingWithSampling(TestMLRunSystemModelMonitoring):
         serving_fn.deploy()
         return serving_fn
 
-    def _setup_resources(self) -> None:
+    def _setup_resources(
+        self, with_model_runner: typing.Optional[bool] = False
+    ) -> None:
         self.set_mm_credentials()
         model_uri = self._log_model()
         with concurrent.futures.ThreadPoolExecutor() as executor:
             executor.submit(
-                self._deploy_model_serving, model_uri, 15.5
+                self._deploy_model_serving, model_uri, 15.5, with_model_runner
             )  # with sampling
-            executor.submit(self._deploy_model_serving, model_uri)  # without sampling
+            executor.submit(
+                self._deploy_model_serving, model_uri, None, with_model_runner
+            )  # without sampling
             executor.submit(self._set_infra)
         self._tsdb_storage = mlrun.model_monitoring.get_tsdb_connector(
             project=self.project_name, profile=self.mm_tsdb_profile
         )
 
-    def test_serving(self) -> None:
+    @pytest.mark.parametrize("with_model_runner", [False, True])
+    def test_serving(self, with_model_runner: bool) -> None:
         # Set up the serving function with a model endpoint, and the necessary infrastructure
-        self._setup_resources()
+        self._setup_resources(with_model_runner)
 
         # Send 10 requests to the serving functions, with each request containing 100 data points
         serving_fn_v1 = typing.cast(
@@ -1722,11 +1840,15 @@ class TestBatchServingWithSampling(TestMLRunSystemModelMonitoring):
 
         for i in range(10):
             serving_fn_v1.invoke(
-                f"v2/models/{self._model_name}/infer",
+                path="/"
+                if with_model_runner
+                else f"v2/models/{self._model_name}/infer",
                 body=json.dumps({"inputs": [[0, 0, 0, 0]] * 100}),
             )
             serving_fn_v2.invoke(
-                f"v2/models/{self._model_name}/infer",
+                path="/"
+                if with_model_runner
+                else f"v2/models/{self._model_name}/infer",
                 body=json.dumps({"inputs": [[0, 0, 0, 0]] * 100}),
             )
 

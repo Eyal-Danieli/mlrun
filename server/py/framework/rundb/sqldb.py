@@ -25,7 +25,6 @@ import mlrun.common.schemas
 import mlrun.common.schemas.artifact
 import mlrun.common.schemas.model_monitoring.constants as mm_constants
 import mlrun.db.factory
-from mlrun.common.db.sql_session import create_session
 from mlrun.db import RunDBInterface
 
 import framework.db.session
@@ -33,6 +32,7 @@ import services.alerts.crud
 import services.api.crud
 from framework.db.base import DBError
 from framework.db.sqldb.db import SQLDB
+from framework.db.sqldb.sql_session import create_session
 
 # This class is a proxy for the real implementation that sits under services.api.db.sqldb
 # The runtime objects (which manages the resources that do the real logic, like Nuclio functions, Dask jobs, etc...)
@@ -149,7 +149,6 @@ class SQLRunDB(RunDBInterface):
         uid: Optional[Union[str, list[str]]] = None,
         project: Optional[Union[str, list[str]]] = None,
         labels: Optional[Union[str, list[str]]] = None,
-        state: Optional[mlrun.common.runtimes.constants.RunStates] = None,
         states: Optional[list[mlrun.common.runtimes.constants.RunStates]] = None,
         sort: bool = True,
         iter: bool = False,
@@ -175,9 +174,7 @@ class SQLRunDB(RunDBInterface):
             uid=uid,
             project=project,
             labels=labels,
-            states=mlrun.utils.helpers.as_list(state)
-            if state is not None
-            else states or None,
+            states=states or None,
             sort=sort,
             iter=iter,
             start_time_from=start_time_from,
@@ -644,22 +641,6 @@ class SQLRunDB(RunDBInterface):
             labels,
         )
 
-    def list_entities(
-        self,
-        project: str,
-        name: Optional[str] = None,
-        tag: Optional[str] = None,
-        labels: Optional[list[str]] = None,
-    ):
-        return self._transform_db_error(
-            services.api.crud.FeatureStore().list_entities,
-            self.session,
-            project,
-            name,
-            tag,
-            labels,
-        )
-
     def list_entities_v2(
         self,
         project: str,
@@ -927,6 +908,13 @@ class SQLRunDB(RunDBInterface):
             function,
         )
 
+    def get_project_background_task(
+        self,
+        project: str,
+        name: str,
+    ) -> mlrun.common.schemas.BackgroundTask:
+        raise NotImplementedError()
+
     def list_hub_sources(
         self,
         item_name: Optional[str] = None,
@@ -950,6 +938,15 @@ class SQLRunDB(RunDBInterface):
             str, mlrun.common.formatters.PipelineFormat
         ] = mlrun.common.formatters.PipelineFormat.summary,
         project: Optional[str] = None,
+    ):
+        raise NotImplementedError()
+
+    def retry_pipeline(
+        self,
+        run_id: str,
+        project: str,
+        namespace: Optional[str] = None,
+        timeout: int = 30,
     ):
         raise NotImplementedError()
 
