@@ -959,7 +959,6 @@ class TDEngineConnector(TSDBConnector):
                 filter_values=application_names,
             )
 
-
         def _get_latest_metrics_records(type: Literal["metrics", "results"]) -> pd.DataFrame:
             columns = [mm_schemas.WriterEvent.APPLICATION_NAME, mm_schemas.WriterEvent.END_INFER_TIME]
             if type == "results":
@@ -1010,7 +1009,6 @@ class TDEngineConnector(TSDBConnector):
             },
             inplace=True,
         )
-
 
 
         if not df_results.empty:
