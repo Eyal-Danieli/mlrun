@@ -998,7 +998,6 @@ class MonitoringDeployment:
                 )
             )
 
-
             print(
                 "[EYAL]: processed_model_endpoints_dict", processed_model_endpoints_dict
             )

@@ -4968,13 +4968,13 @@ class MlrunProject(ModelObj):
             include_infra=include_infra,
         )
 
-
-    def get_monitoring_function_summary(self,
-                name: str,
-                start: Optional[datetime.datetime] = None,
-                end: Optional[datetime.datetime] = None,
-                                        include_latest_metrics: bool = False,
-                                        ):
+    def get_monitoring_function_summary(
+        self,
+        name: str,
+        start: Optional[datetime.datetime] = None,
+        end: Optional[datetime.datetime] = None,
+        include_latest_metrics: bool = False,
+    ):
         """Get a monitoring function summary for the specified project and function name.
         :param name: Name of the monitoring function to retrieve the summary for.
         :param start: Start time for filtering the results (optional).
@@ -4996,7 +4996,6 @@ class MlrunProject(ModelObj):
             end=end,
             include_latest_metrics=include_latest_metrics,
         )
-
 
     def list_runs(
         self,
