@@ -4991,7 +4991,7 @@ class MlrunProject(ModelObj):
         db = mlrun.db.get_run_db(secrets=self._secrets)
         return db.get_monitoring_function_summary(
             project=self.metadata.name,
-            name=name,
+            function_name=name,
             start=start,
             end=end,
             include_latest_metrics=include_latest_metrics,
