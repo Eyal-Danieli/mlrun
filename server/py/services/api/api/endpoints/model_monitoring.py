@@ -438,6 +438,7 @@ async def get_model_monitoring_function_summaries(
 async def get_model_monitoring_function_summary(
     commons: Annotated[_FunctionSummariesParams, Depends(_common_function_parameters)],
     function_name: str,
+    include_latest_metrics: bool = Query(True, alias="include-latest-metrics"),
 ) -> mlrun.common.schemas.model_monitoring.FunctionSummary:
     """Get monitoring function summary for the specified project and function name.
 
@@ -464,6 +465,7 @@ async def get_model_monitoring_function_summary(
         start=commons.start,
         end=commons.end,
         name=function_name,
+        include_latest_metrics=include_latest_metrics,
     )
 
     print("[EYAL]: get_model_monitoring_function_summary result:", res)

@@ -4194,6 +4194,7 @@ class HTTPRunDB(RunDBInterface):
         function_name: str,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
+            include_latest_metrics: bool = False,
     ) -> FunctionSummary:
         """
         Get a monitoring function summary for the specified project and function.
@@ -4205,7 +4206,7 @@ class HTTPRunDB(RunDBInterface):
         :return: A FunctionSummary object containing information about the monitoring function.
         """
         path = f"projects/{project}/model-monitoring/function-summaries/{function_name}"
-        params = {"start": datetime_to_iso(start), "end": datetime_to_iso(end)}
+        params = {"start": datetime_to_iso(start), "end": datetime_to_iso(end), "include-latest-metrics": include_latest_metrics}
         print("[EYAL]: params", params)
         response = self.api_call(
             method=mlrun.common.types.HTTPMethod.GET,
