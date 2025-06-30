@@ -1271,25 +1271,16 @@ class V3IOTSDBConnector(TSDBConnector):
 
     def count_processed_model_endpoints(
         self,
-        start: datetime,
-        end: datetime,
+        start: Optional[Union[datetime, str]] = None,
+        end: Optional[Union[datetime, str]] = None,
         application_names: Optional[Union[str, list[str]]] = None,
-    ) -> dict:
-        """
-        Count the number of processed model endpoints within a given time range for specific applications.
+    ) -> dict[str, int]:
+        raise NotImplementedError()
 
-        :param start:              The start time of the query.
-        :param end:                The end time of the query.
-        :param application_names:  A list of application names to filter the results by. If not provided, all
-                                   applications are included.
-
-        :return:                   The count of processed model endpoints.
-        """
-
-        filter_query = ""
-
-        if application_names:
-            filter_query = self._generate_filter_query(
-                filter_key=mm_schemas.ApplicationEvent.APPLICATION_NAME,
-                filter_values=application_names,
-            )
+    def calculate_latest_metrics(
+        self,
+        start: Optional[Union[datetime, str]] = None,
+        end: Optional[Union[datetime, str]] = None,
+        application_names: Optional[Union[str, list[str]]] = None,
+    ) -> list[dict]:
+        raise NotImplementedError()

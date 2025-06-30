@@ -111,6 +111,7 @@ class MonitoringDeployment:
             project=project
         )
         self.__stream_profile = None
+        self.__tsdb_connector = None
 
     @property
     def _stream_profile(self) -> mlrun.datastore.datastore_profile.DatastoreProfile:
@@ -119,6 +120,14 @@ class MonitoringDeployment:
                 project=self.project, secret_provider=self._secret_provider
             )
         return self.__stream_profile
+
+    @property
+    def _tsdb_connector(self) -> mlrun.model_monitoring.db.TSDBConnector:
+        if not self.__tsdb_connector:
+            self.__tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+                project=self.project, secret_provider=self._secret_provider
+            )
+        return self.__tsdb_connector
 
     def deploy_monitoring_functions(
         self,
@@ -490,9 +499,9 @@ class MonitoringDeployment:
             framework.api.utils.get_run_db_instance(self.db_session)
         )
 
-        tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
-            project=self.project, secret_provider=self._secret_provider
-        )
+        # tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+        #     project=self.project, secret_provider=self._secret_provider
+        # )
 
         controller_stream_uri = mlrun.model_monitoring.get_stream_path(
             project=self.project,
@@ -502,7 +511,7 @@ class MonitoringDeployment:
 
         # Create monitoring serving graph
         stream_processor.apply_monitoring_serving_graph(
-            function, tsdb_connector, controller_stream_uri
+            function, self._tsdb_connector, controller_stream_uri
         )
 
         # Set the project to the serving function
@@ -838,6 +847,7 @@ class MonitoringDeployment:
         name: str,
         start: typing.Optional[datetime] = None,
         end: typing.Optional[datetime] = None,
+        include_latest_metrics: bool = False,
     ) -> mlrun.common.schemas.model_monitoring.FunctionSummary:
         """
         Retrieve a single model monitoring function summary by its name.
@@ -860,6 +870,17 @@ class MonitoringDeployment:
             raise mlrun.errors.MLRunNotFoundError(
                 f"Model monitoring function '{name}' not found in project '{self.project}'."
             )
+
+        if include_latest_metrics:
+            # Enrich the function summary with latest metrics
+            function_summary[0].stats["metrics"] = (
+                self._tsdb_connector.calculate_latest_metrics(
+                    start=start,
+                    end=end,
+                    application_names=[name],
+                )
+            )
+
         print("[EYAL]: function_summary before return", function_summary)
         return function_summary[0]
 
@@ -922,6 +943,7 @@ class MonitoringDeployment:
         labels: typing.Optional[list[str]] = None,
         include_stats: bool = True,
         include_processed_model_endpoints: bool = False,
+        include_latest_metrics: bool = False,
     ):
         """
         Return function summaries list with the model monitoring applications.
@@ -945,17 +967,17 @@ class MonitoringDeployment:
 
         detection_stats_dict = {}
         processed_model_endpoints_dict = {}
-        tsdb_connector = None
+        # tsdb_connector = None
         if include_stats:
             # enrich func stats with #detections and #possible_detections
             now = mlrun.utils.datetime_now()
             start = start or (now - timedelta(hours=24))
             end = end or now
-            tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
-                project=self.project, secret_provider=self._secret_provider
-            )
+            # tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+            #     project=self.project, secret_provider=self._secret_provider
+            # )
 
-            detection_stats_dict = tsdb_connector.count_results_by_status(
+            detection_stats_dict = self._tsdb_connector.count_results_by_status(
                 start=start,
                 end=end,
                 result_status_list=[
@@ -964,20 +986,35 @@ class MonitoringDeployment:
                 ],
             )
         if include_processed_model_endpoints:
-            if not tsdb_connector:
-                # if tsdb_connector is not initialized, initialize it
-                tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
-                    project=self.project, secret_provider=self._secret_provider
-                )
+            # if not tsdb_connector:
+            #     # if tsdb_connector is not initialized, initialize it
+            #     tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+            #         project=self.project, secret_provider=self._secret_provider
+            #     )
             # enrich func stats with processed model endpoints
             processed_model_endpoints_dict = (
-                tsdb_connector.count_processed_model_endpoints(
+                self._tsdb_connector.count_processed_model_endpoints(
                     start=start, end=end, application_names=names
                 )
             )
+
+
             print(
                 "[EYAL]: processed_model_endpoints_dict", processed_model_endpoints_dict
             )
+
+        # if include_latest_metrics:
+        #     if not tsdb_connector:
+        #         # if tsdb_connector is not initialized, initialize it
+        #         tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+        #             project=self.project, secret_provider=self._secret_provider
+        #         )
+        #     # enrich func stats with latest metrics
+        #     latest_metrics_list = tsdb_connector.calculate_latest_metrics(
+        #         start=start,
+        #         end=end,
+        #         application_names=names,
+        #     )
 
         for function in mm_functions_list:
             function_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_function_dict(
