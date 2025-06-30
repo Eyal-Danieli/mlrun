@@ -4194,7 +4194,7 @@ class HTTPRunDB(RunDBInterface):
         function_name: str,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
-            include_latest_metrics: bool = False,
+        include_latest_metrics: bool = False,
     ) -> FunctionSummary:
         """
         Get a monitoring function summary for the specified project and function.
