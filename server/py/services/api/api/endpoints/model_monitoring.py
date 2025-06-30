@@ -431,7 +431,10 @@ async def get_model_monitoring_function_summaries(
     )
 
 
-@router.get("/function-summaries/{function_name}", response_model=mlrun.common.schemas.model_monitoring.FunctionSummary)
+@router.get(
+    "/function-summaries/{function_name}",
+    response_model=mlrun.common.schemas.model_monitoring.FunctionSummary,
+)
 async def get_model_monitoring_function_summary(
     commons: Annotated[_FunctionSummariesParams, Depends(_common_function_parameters)],
     function_name: str,
@@ -444,8 +447,13 @@ async def get_model_monitoring_function_summary(
     :return: A FunctionSummary object containing information about the monitoring function.
     """
 
-    print("[EYAL]: get_model_monitoring_function_summary called with function_name:", function_name)
-    print("[EYAL]: get_model_monitoring_function_summary called with start", commons.start)
+    print(
+        "[EYAL]: get_model_monitoring_function_summary called with function_name:",
+        function_name,
+    )
+    print(
+        "[EYAL]: get_model_monitoring_function_summary called with start", commons.start
+    )
     print("[EYAL]: get_model_monitoring_function_summary called with end", commons.end)
 
     res = MonitoringDeployment(
@@ -460,6 +468,12 @@ async def get_model_monitoring_function_summary(
 
     print("[EYAL]: get_model_monitoring_function_summary result:", res)
     print("[EYAL]: get_model_monitoring_function_summary result type:", type(res))
-    print("[EYAL]: get_model_monitoring_function_summary result type es.stats:", type(res.stats))
-    print("[EYAL]: get_model_monitoring_function_summary result type processed_model_endpoints:", type(res.stats["processed_model_endpoints"]))
+    print(
+        "[EYAL]: get_model_monitoring_function_summary result type es.stats:",
+        type(res.stats),
+    )
+    print(
+        "[EYAL]: get_model_monitoring_function_summary result type processed_model_endpoints:",
+        type(res.stats["processed_model_endpoints"]),
+    )
     return res

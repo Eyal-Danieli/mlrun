@@ -1293,4 +1293,3 @@ class V3IOTSDBConnector(TSDBConnector):
                 filter_key=mm_schemas.ApplicationEvent.APPLICATION_NAME,
                 filter_values=application_names,
             )
-

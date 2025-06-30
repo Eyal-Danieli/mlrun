@@ -975,7 +975,9 @@ class MonitoringDeployment:
                     start=start, end=end, application_names=names
                 )
             )
-            print("[EYAL]: processed_model_endpoints_dict", processed_model_endpoints_dict)
+            print(
+                "[EYAL]: processed_model_endpoints_dict", processed_model_endpoints_dict
+            )
 
         for function in mm_functions_list:
             function_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_function_dict(
@@ -1002,7 +1004,10 @@ class MonitoringDeployment:
                     ),
                 }
             if include_processed_model_endpoints:
-                print("[EYAL]: processed_model_endpoints_dict", processed_model_endpoints_dict)
+                print(
+                    "[EYAL]: processed_model_endpoints_dict",
+                    processed_model_endpoints_dict,
+                )
                 # enrich func stats with processed model endpoints
                 function_summary.stats["processed_model_endpoints"] = (
                     processed_model_endpoints_dict.get(function_summary.name, 0)

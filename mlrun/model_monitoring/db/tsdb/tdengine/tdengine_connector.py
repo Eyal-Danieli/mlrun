@@ -882,7 +882,6 @@ class TDEngineConnector(TSDBConnector):
     #         for app_name, row in grouped_df.iterrows()
     #     }
 
-
     def count_processed_model_endpoints(
         self,
         start: Optional[Union[datetime, str]] = None,
@@ -930,7 +929,9 @@ class TDEngineConnector(TSDBConnector):
 
         combined_df = pd.concat([df_results, df_metrics]).drop_duplicates()
 
-        print("[EYAL]: now in count_processed_model_endpoints, combined_df:", combined_df)
+        print(
+            "[EYAL]: now in count_processed_model_endpoints, combined_df:", combined_df
+        )
         if combined_df.empty:
             return {}
         grouped_df = combined_df.groupby(
@@ -943,11 +944,13 @@ class TDEngineConnector(TSDBConnector):
             for app_name, row in grouped_df.iterrows()
         }
 
-    def calculate_latest_metrics(self,
+    def calculate_latest_metrics(
+        self,
         start: Optional[Union[datetime, str]] = None,
         end: Optional[Union[datetime, str]] = None,
-        application_names: Optional[Union[str, list[str]]] = None,) -> list[dict]:
-        latest_metrics = []
+        application_names: Optional[Union[str, list[str]]] = None,
+    ) -> list[dict]:
+        metric_list = []
         filter_query = ""
         now = mlrun.utils.datetime_now()
         start = start or (now - timedelta(hours=24))
@@ -959,10 +962,17 @@ class TDEngineConnector(TSDBConnector):
                 filter_values=application_names,
             )
 
-        def _get_latest_metrics_records(type: Literal["metrics", "results"]) -> pd.DataFrame:
-            columns = [mm_schemas.WriterEvent.APPLICATION_NAME, mm_schemas.WriterEvent.END_INFER_TIME]
+        def _get_latest_metrics_records(
+            type: Literal["metrics", "results"],
+        ) -> pd.DataFrame:
+            columns = [
+                mm_schemas.WriterEvent.APPLICATION_NAME,
+                mm_schemas.WriterEvent.END_INFER_TIME,
+            ]
             if type == "results":
-                table = self.tables[mm_schemas.TDEngineSuperTables.APP_RESULTS].super_table
+                table = self.tables[
+                    mm_schemas.TDEngineSuperTables.APP_RESULTS
+                ].super_table
                 columns += [
                     mm_schemas.ResultData.RESULT_NAME,
                     mm_schemas.ResultData.RESULT_VALUE,
@@ -994,26 +1004,17 @@ class TDEngineConnector(TSDBConnector):
         df_metrics = _get_latest_metrics_records(type="metrics")
 
         if df_results.empty and df_metrics.empty:
-            return latest_metrics
-
-        df_results.rename(
-            columns={
-                f"last({mm_schemas.ResultData.RESULT_VALUE})": mm_schemas.ResultData.RESULT_VALUE,
-            },
-            inplace=True,
-        )
-
-        df_metrics.rename(
-            columns={
-                f"last({mm_schemas.MetricData.METRIC_VALUE})": mm_schemas.MetricData.METRIC_VALUE,
-            },
-            inplace=True,
-        )
-
+            return metric_list
 
         if not df_results.empty:
+            df_results.rename(
+                columns={
+                    f"last({mm_schemas.ResultData.RESULT_VALUE})": mm_schemas.ResultData.RESULT_VALUE,
+                },
+                inplace=True,
+            )
             for _, row in df_results.iterrows():
-                latest_metrics.append(
+                metric_list.append(
                     {
                         "type": "result",
                         "time": row[mm_schemas.WriterEvent.END_INFER_TIME],
@@ -1024,8 +1025,14 @@ class TDEngineConnector(TSDBConnector):
                     }
                 )
         if not df_metrics.empty:
+            df_metrics.rename(
+                columns={
+                    f"last({mm_schemas.MetricData.METRIC_VALUE})": mm_schemas.MetricData.METRIC_VALUE,
+                },
+                inplace=True,
+            )
             for _, row in df_metrics.iterrows():
-                latest_metrics.append(
+                metric_list.append(
                     {
                         "type": "metric",
                         "time": row[mm_schemas.WriterEvent.END_INFER_TIME],
@@ -1033,12 +1040,7 @@ class TDEngineConnector(TSDBConnector):
                         "value": row[mm_schemas.MetricData.METRIC_VALUE],
                     }
                 )
-        return latest_metrics
-
-
-
-
-
+        return metric_list
 
     def get_metrics_metadata(
         self,

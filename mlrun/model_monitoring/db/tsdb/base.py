@@ -376,12 +376,13 @@ class TSDBConnector(ABC):
         :return:                   The count of processed model endpoints.
         """
 
-
     @abstractmethod
-    def calculate_latest_metrics(self,
+    def calculate_latest_metrics(
+        self,
         start: Optional[Union[datetime, str]] = None,
         end: Optional[Union[datetime, str]] = None,
-        application_names: Optional[Union[str, list[str]]] = None,) -> list[dict]:
+        application_names: Optional[Union[str, list[str]]] = None,
+    ) -> list[dict]:
         """
         Calculate the latest metrics and results across applications.
 
