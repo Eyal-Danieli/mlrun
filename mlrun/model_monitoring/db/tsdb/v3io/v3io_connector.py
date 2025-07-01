@@ -905,6 +905,7 @@ class V3IOTSDBConnector(TSDBConnector):
                     if i != 0:  # not first sub condition
                         query.write(" OR ")
                     query.write(sub_cond)
+                query.write(")")
 
             if group_by_columns:
                 query.write(" GROUP BY ")
