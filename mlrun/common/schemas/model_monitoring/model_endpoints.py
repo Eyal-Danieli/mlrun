@@ -14,7 +14,7 @@
 import abc
 import json
 from datetime import datetime
-from typing import Any, NamedTuple, Optional, TypeVar
+from typing import Any, NamedTuple, Optional, TypeVar, Literal, Union
 from uuid import UUID
 
 from pydantic import validator  # use `validator` if you’re still on Pydantic v1
@@ -297,6 +297,7 @@ def _parse_metric_fqn_to_monitoring_metric(fqn: str) -> ModelEndpointMonitoringM
     )
 
 
+
 class _MetricPoint(NamedTuple):
     timestamp: datetime
     value: float
@@ -332,6 +333,25 @@ class ModelEndpointMonitoringMetricNoData(_ModelEndpointMonitoringMetricValuesBa
     full_name: str
     type: ModelEndpointMonitoringMetricType
     data: bool = False
+
+
+class BaseRecord(BaseModel):
+    type: Literal["metric", "result"]
+    time: datetime
+    name: str
+    value: float
+
+
+class ResultRecord(BaseRecord):
+    type: Literal["result"]
+    kind: ResultKindApp
+    status: ResultStatusApp
+
+
+class MetricRecord(BaseRecord):
+    type: Literal["metric"]
+
+
 
 
 def _mapping_attributes(

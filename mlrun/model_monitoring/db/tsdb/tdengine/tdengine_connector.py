@@ -23,7 +23,7 @@ import mlrun.common.schemas.model_monitoring as mm_schemas
 import mlrun.common.types
 import mlrun.model_monitoring.db.tsdb.tdengine.schemas as tdengine_schemas
 import mlrun.model_monitoring.db.tsdb.tdengine.stream_graph_steps
-from mlrun.common.schemas.model_monitoring import ModelEndpointMonitoringResultValues, ModelEndpointMonitoringMetricValues
+from mlrun.common.schemas.model_monitoring import ModelEndpointMonitoringResultValues
 from mlrun.datastore.datastore_profile import DatastoreProfile
 from mlrun.model_monitoring.db import TSDBConnector
 from mlrun.model_monitoring.db.tsdb.tdengine.tdengine_connection import (
@@ -947,9 +947,8 @@ class TDEngineConnector(TSDBConnector):
         def _build_metric_objects(
             df_results: pd.DataFrame,
             df_metrics: pd.DataFrame,
-        ) -> list[Union[mm_schemas.ModelEndpointMonitoringMetricValues,
-            mm_schemas.ModelEndpointMonitoringResultValues]]:
-            metrics: list[Union[ModelEndpointMonitoringMetricValues, ModelEndpointMonitoringResultValues]] = []
+        ) -> list[Union[mm_schemas.ResultRecord, mm_schemas.MetricRecord]]:
+            metrics: list[Union[mm_schemas.ResultRecord, mm_schemas.MetricRecord]] = []
             if not df_results.empty:
                 df_results.rename(
                     columns={
@@ -959,15 +958,17 @@ class TDEngineConnector(TSDBConnector):
                 )
                 for _, row in df_results.iterrows():
                     metrics.append(
-                        mm_schemas.ModelEndpointMonitoringResultValues(
-                            full_name=get_invocations_fqn(self.project),
+                        mm_schemas.ResultRecord(
+                            type=mm_schemas.ModelEndpointMonitoringMetricType.RESULT.value,
                             time=row[mm_schemas.WriterEvent.END_INFER_TIME],
                             name=row[mm_schemas.ResultData.RESULT_NAME],
+                            value=row[mm_schemas.ResultData.RESULT_VALUE],
                             kind=row[mm_schemas.ResultData.RESULT_KIND],
                             status=row[mm_schemas.ResultData.RESULT_STATUS],
-                            value=row[mm_schemas.ResultData.RESULT_VALUE],
                         )
                     )
+
+
             if not df_metrics.empty:
                 df_metrics.rename(
                     columns={
@@ -977,13 +978,21 @@ class TDEngineConnector(TSDBConnector):
                 )
                 for _, row in df_metrics.iterrows():
                     metrics.append(
-                        mm_schemas.ModelEndpointMonitoringMetricValues(
-                            full_name=get_invocations_fqn(self.project),
+                        mm_schemas.MetricRecord(
+                            type=mm_schemas.ModelEndpointMonitoringMetricType.METRIC.value,
                             time=row[mm_schemas.WriterEvent.END_INFER_TIME],
                             name=row[mm_schemas.MetricData.METRIC_NAME],
                             value=row[mm_schemas.MetricData.METRIC_VALUE],
                         )
                     )
+                    # metrics.append(
+                    #     mm_schemas.ModelEndpointMonitoringMetricValues(
+                    #         full_name=get_invocations_fqn(self.project),
+                    #         time=row[mm_schemas.WriterEvent.END_INFER_TIME],
+                    #         name=row[mm_schemas.MetricData.METRIC_NAME],
+                    #         value=row[mm_schemas.MetricData.METRIC_VALUE],
+                    #     )
+                    # )
             return metrics
 
         return _build_metric_objects(
