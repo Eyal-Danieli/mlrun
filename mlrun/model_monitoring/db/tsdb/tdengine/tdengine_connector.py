@@ -23,6 +23,7 @@ import mlrun.common.schemas.model_monitoring as mm_schemas
 import mlrun.common.types
 import mlrun.model_monitoring.db.tsdb.tdengine.schemas as tdengine_schemas
 import mlrun.model_monitoring.db.tsdb.tdengine.stream_graph_steps
+from mlrun.common.schemas.model_monitoring import ModelEndpointMonitoringResultValues, ModelEndpointMonitoringMetricValues
 from mlrun.datastore.datastore_profile import DatastoreProfile
 from mlrun.model_monitoring.db import TSDBConnector
 from mlrun.model_monitoring.db.tsdb.tdengine.tdengine_connection import (
@@ -942,41 +943,89 @@ class TDEngineConnector(TSDBConnector):
         if df_results.empty and df_metrics.empty:
             return metric_list
 
-        if not df_results.empty:
-            df_results.rename(
-                columns={
-                    f"last({mm_schemas.ResultData.RESULT_VALUE})": mm_schemas.ResultData.RESULT_VALUE,
-                },
-                inplace=True,
-            )
-            for _, row in df_results.iterrows():
-                metric_list.append(
-                    {
-                        "type": "result",
-                        "time": row[mm_schemas.WriterEvent.END_INFER_TIME],
-                        "name": row[mm_schemas.ResultData.RESULT_NAME],
-                        "kind": row[mm_schemas.ResultData.RESULT_KIND],
-                        "status": row[mm_schemas.ResultData.RESULT_STATUS],
-                        "value": row[mm_schemas.ResultData.RESULT_VALUE],
-                    }
+
+        def _build_metric_objects(
+            df_results: pd.DataFrame,
+            df_metrics: pd.DataFrame,
+        ) -> list[Union[mm_schemas.ModelEndpointMonitoringMetricValues,
+            mm_schemas.ModelEndpointMonitoringResultValues]]:
+            metrics: list[Union[ModelEndpointMonitoringMetricValues, ModelEndpointMonitoringResultValues]] = []
+            if not df_results.empty:
+                df_results.rename(
+                    columns={
+                        f"last({mm_schemas.ResultData.RESULT_VALUE})": mm_schemas.ResultData.RESULT_VALUE,
+                    },
+                    inplace=True,
                 )
-        if not df_metrics.empty:
-            df_metrics.rename(
-                columns={
-                    f"last({mm_schemas.MetricData.METRIC_VALUE})": mm_schemas.MetricData.METRIC_VALUE,
-                },
-                inplace=True,
-            )
-            for _, row in df_metrics.iterrows():
-                metric_list.append(
-                    {
-                        "type": "metric",
-                        "time": row[mm_schemas.WriterEvent.END_INFER_TIME],
-                        "name": row[mm_schemas.MetricData.METRIC_NAME],
-                        "value": row[mm_schemas.MetricData.METRIC_VALUE],
-                    }
+                for _, row in df_results.iterrows():
+                    metrics.append(
+                        mm_schemas.ModelEndpointMonitoringResultValues(
+                            full_name=get_invocations_fqn(self.project),
+                            time=row[mm_schemas.WriterEvent.END_INFER_TIME],
+                            name=row[mm_schemas.ResultData.RESULT_NAME],
+                            kind=row[mm_schemas.ResultData.RESULT_KIND],
+                            status=row[mm_schemas.ResultData.RESULT_STATUS],
+                            value=row[mm_schemas.ResultData.RESULT_VALUE],
+                        )
+                    )
+            if not df_metrics.empty:
+                df_metrics.rename(
+                    columns={
+                        f"last({mm_schemas.MetricData.METRIC_VALUE})": mm_schemas.MetricData.METRIC_VALUE,
+                    },
+                    inplace=True,
                 )
-        return metric_list
+                for _, row in df_metrics.iterrows():
+                    metrics.append(
+                        mm_schemas.ModelEndpointMonitoringMetricValues(
+                            full_name=get_invocations_fqn(self.project),
+                            time=row[mm_schemas.WriterEvent.END_INFER_TIME],
+                            name=row[mm_schemas.MetricData.METRIC_NAME],
+                            value=row[mm_schemas.MetricData.METRIC_VALUE],
+                        )
+                    )
+            return metrics
+
+        return _build_metric_objects(
+            df_results=df_results,
+            df_metrics=df_metrics,
+        )
+
+        # if not df_results.empty:
+        #     df_results.rename(
+        #         columns={
+        #             f"last({mm_schemas.ResultData.RESULT_VALUE})": mm_schemas.ResultData.RESULT_VALUE,
+        #         },
+        #         inplace=True,
+        #     )
+        #     for _, row in df_results.iterrows():
+        #         metric_list.append(
+        #             {
+        #                 "type": "result",
+        #                 "time": row[mm_schemas.WriterEvent.END_INFER_TIME],
+        #                 "name": row[mm_schemas.ResultData.RESULT_NAME],
+        #                 "kind": row[mm_schemas.ResultData.RESULT_KIND],
+        #                 "status": row[mm_schemas.ResultData.RESULT_STATUS],
+        #                 "value": row[mm_schemas.ResultData.RESULT_VALUE],
+        #             }
+        #         )
+        # if not df_metrics.empty:
+        #     df_metrics.rename(
+        #         columns={
+        #             f"last({mm_schemas.MetricData.METRIC_VALUE})": mm_schemas.MetricData.METRIC_VALUE,
+        #         },
+        #         inplace=True,
+        #     )
+        #     for _, row in df_metrics.iterrows():
+        #         metric_list.append(
+        #             {
+        #                 "type": "metric",
+        #                 "time": row[mm_schemas.WriterEvent.END_INFER_TIME],
+        #                 "name": row[mm_schemas.MetricData.METRIC_NAME],
+        #                 "value": row[mm_schemas.MetricData.METRIC_VALUE],
+        #             }
+        #         )
+        # return metric_list
 
     def get_metrics_metadata(
         self,
