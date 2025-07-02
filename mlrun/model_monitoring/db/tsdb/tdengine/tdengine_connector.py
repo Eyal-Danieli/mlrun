@@ -947,8 +947,8 @@ class TDEngineConnector(TSDBConnector):
         def _build_metric_objects(
             df_results: pd.DataFrame,
             df_metrics: pd.DataFrame,
-        ) -> list[Union[mm_schemas.ResultRecord, mm_schemas.MetricRecord]]:
-            metrics: list[Union[mm_schemas.ResultRecord, mm_schemas.MetricRecord]] = []
+        ) -> list[Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]]:
+            metrics: list[Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]] = []
             if not df_results.empty:
                 df_results.rename(
                     columns={
@@ -957,10 +957,11 @@ class TDEngineConnector(TSDBConnector):
                     inplace=True,
                 )
                 for _, row in df_results.iterrows():
+                    print('[EYAL]: row: ', row)
                     print('[EYAL]: end infer time: ', row[mm_schemas.WriterEvent.END_INFER_TIME])
                     print('[EYAL]: end infer time type: ', type(row[mm_schemas.WriterEvent.END_INFER_TIME]))
                     metrics.append(
-                        mm_schemas.ResultRecord(
+                        mm_schemas.ApplicationResultRecord(
                             type=mm_schemas.ModelEndpointMonitoringMetricType.RESULT.value,
                             time=row[mm_schemas.WriterEvent.END_INFER_TIME],
                             name=row[mm_schemas.ResultData.RESULT_NAME],
@@ -980,7 +981,7 @@ class TDEngineConnector(TSDBConnector):
                 )
                 for _, row in df_metrics.iterrows():
                     metrics.append(
-                        mm_schemas.MetricRecord(
+                        mm_schemas.ApplicationMetricRecord(
                             type=mm_schemas.ModelEndpointMonitoringMetricType.METRIC.value,
                             time=row[mm_schemas.WriterEvent.END_INFER_TIME],
                             name=row[mm_schemas.MetricData.METRIC_NAME],
