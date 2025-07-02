@@ -1357,12 +1357,39 @@ class V3IOTSDBConnector(TSDBConnector):
         now = mlrun.utils.datetime_now()
         start = start or (now - timedelta(hours=24))
         end = end or now
-        filter_query = ""
-        if application_names:
-            filter_query = self._generate_filter_query(
-                filter_key=mm_schemas.ApplicationEvent.APPLICATION_NAME,
-                filter_values=application_names,
+
+        def _get_processed_model_endpoints_query(
+            type: Literal["metrics", "results"],
+            application_names: Optional[Union[str, list[str]]] = None,
+        ) -> str:
+            """
+            Get the SQL query for counting processed model endpoints.
+            """
+            group_by_columns = [mm_schemas.WriterEvent.ENDPOINT_ID, mm_schemas.WriterEvent.APPLICATION_NAME]
+            if type == "results":
+                table_path = self.tables[mm_schemas.V3IOTSDBTables.APP_RESULTS]
+                columns = [mm_schemas.ResultData.RESULT_VALUE]
+            else:
+                table_path = self.tables[mm_schemas.V3IOTSDBTables.METRICS]
+                columns = [mm_schemas.MetricData.METRIC_VALUE]
+            return self._get_sql_query(
+                table_path=table_path,
+                application_names=application_names,
+                columns=columns,
+                group_by_columns=group_by_columns,
             )
+
+
+
+        group_by_columns = [mm_schemas.WriterEvent.ENDPOINT_ID, mm_schemas.WriterEvent.APPLICATION_NAME]
+
+        result_sql_query = self._get_sql_query(
+            table_path=self.tables[mm_schemas.V3IOTSDBTables.APP_RESULTS],
+            application_names=application_names,
+            name=mm_schemas.MetricData.METRIC_NAME,
+            columns=[mm_schemas.MetricData.METRIC_NAME],
+            group_by_columns=group_by_columns,
+        )
 
 
 
