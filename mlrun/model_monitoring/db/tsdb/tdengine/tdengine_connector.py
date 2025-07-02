@@ -957,6 +957,8 @@ class TDEngineConnector(TSDBConnector):
                     inplace=True,
                 )
                 for _, row in df_results.iterrows():
+                    print('[EYAL]: end infer time: ', row[mm_schemas.WriterEvent.END_INFER_TIME])
+                    print('[EYAL]: end infer time type: ', type(row[mm_schemas.WriterEvent.END_INFER_TIME]))
                     metrics.append(
                         mm_schemas.ResultRecord(
                             type=mm_schemas.ModelEndpointMonitoringMetricType.RESULT.value,
