@@ -335,21 +335,23 @@ class ModelEndpointMonitoringMetricNoData(_ModelEndpointMonitoringMetricValuesBa
     data: bool = False
 
 
-class BaseRecord(BaseModel):
+class ApplicationBaseRecord(BaseModel):
     type: Literal["metric", "result"]
     time: datetime
-    name: str
+    application_name: str
     value: float
 
 
-class ResultRecord(BaseRecord):
+class ApplicationResultRecord(ApplicationBaseRecord):
     type: Literal["result"]
     kind: ResultKindApp
     status: ResultStatusApp
+    result_name: str
 
 
-class MetricRecord(BaseRecord):
+class ApplicationMetricRecord(ApplicationBaseRecord):
     type: Literal["metric"]
+    metric_name: str
 
 
 
