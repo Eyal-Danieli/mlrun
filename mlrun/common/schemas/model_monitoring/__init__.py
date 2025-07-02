@@ -65,6 +65,6 @@ from .model_endpoints import (
     ModelEndpointMonitoringResultValues,
     ModelEndpointSpec,
     ModelEndpointStatus,
-ResultRecord,
-MetricRecord,
+    ApplicationResultRecord,
+    ApplicationMetricRecord,
 )
