@@ -1310,7 +1310,26 @@ class V3IOTSDBConnector(TSDBConnector):
         end: Optional[Union[datetime, str]] = None,
         application_names: Optional[Union[str, list[str]]] = None,
     ) -> dict[str, int]:
-        raise NotImplementedError
+
+        start, end = get_start_end(start=start, end=end, delta=timedelta(hours=24))
+        def get_application_endpoints_records(record_type: Literal["metrics", "results"]):
+            group_by_columns = [mm_schemas.ApplicationEvent.APPLICATION_NAME, mm_schemas.ApplicationEvent.ENDPOINT_ID]
+            if record_type == "results":
+                table_path = self.tables[mm_schemas.V3IOTSDBTables.APP_RESULTS]
+            else:
+                table_path = self.tables[mm_schemas.V3IOTSDBTables.METRICS]
+            sql_query = self._get_sql_query(table_path=table_path, columns=[mm_schemas.WriterEvent.START_INFER_TIME],
+                                            group_by_columns=group_by_columns,
+                                           application_names=application_names,)
+            return self.frames_client.read(backend=_TSDB_BE,
+                                    start=start,
+                                    end=end,
+                                    query=sql_query,)
+
+        df_results = get_application_endpoints_records("results")
+        df_metrics = get_application_endpoints_records("metrics")
+
+
 
     def calculate_latest_metrics(
         self,
