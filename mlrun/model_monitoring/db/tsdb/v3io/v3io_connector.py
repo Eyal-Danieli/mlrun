@@ -803,14 +803,27 @@ class V3IOTSDBConnector(TSDBConnector):
 
     @staticmethod
     def _get_sql_query(
-        *,
-        endpoint_id: str,
-        table_path: str,
-        name: str = mm_schemas.ResultData.RESULT_NAME,
-        metric_and_app_names: Optional[list[tuple[str, str]]] = None,
-        columns: Optional[list[str]] = None,
+            *,
+            table_path: str,
+            endpoint_id: Optional[str] = None,
+            application_names: Optional[list[str]] = None,
+            name: str = mm_schemas.ResultData.RESULT_NAME,
+            metric_and_app_names: Optional[list[tuple[str, str]]] = None,
+            columns: Optional[list[str]] = None,
+            group_by_columns: Optional[list[str]] = None,
     ) -> str:
         """Get the SQL query for the results/metrics table"""
+
+        if metric_and_app_names and not endpoint_id:
+            raise mlrun.errors.MLRunInvalidArgumentError(
+                "If metric_and_app_names is provided, endpoint_id must also be provided"
+            )
+
+        if metric_and_app_names and application_names:
+            raise mlrun.errors.MLRunInvalidArgumentError(
+                "Cannot provide both metric_and_app_names and application_names"
+            )
+
         if columns:
             selection = ",".join(columns)
         else:
@@ -819,10 +832,17 @@ class V3IOTSDBConnector(TSDBConnector):
         with StringIO() as query:
             query.write(
                 f"SELECT {selection} FROM '{table_path}' "
-                f"WHERE {mm_schemas.WriterEvent.ENDPOINT_ID}='{endpoint_id}'"
+                # f"WHERE {mm_schemas.WriterEvent.ENDPOINT_ID}='{endpoint_id}'"
             )
+            if endpoint_id:
+                query.write(
+                    f" WHERE {mm_schemas.WriterEvent.ENDPOINT_ID}='{endpoint_id}'"
+                )
             if metric_and_app_names:
-                query.write(" AND (")
+                if endpoint_id:
+                    query.write(" AND (")
+                else:
+                    query.write(" WHERE (")
 
                 for i, (app_name, result_name) in enumerate(metric_and_app_names):
                     sub_cond = (
@@ -834,6 +854,24 @@ class V3IOTSDBConnector(TSDBConnector):
                     query.write(sub_cond)
 
                 query.write(")")
+
+            if application_names:
+                if endpoint_id or metric_and_app_names:
+                    query.write(" AND (")
+                else:
+                    query.write(" WHERE (")
+                for i, app_name in enumerate(application_names):
+                    sub_cond = (
+                        f"{mm_schemas.WriterEvent.APPLICATION_NAME}='{app_name}'"
+                    )
+                    if i != 0:  # not first sub condition
+                        query.write(" OR ")
+                    query.write(sub_cond)
+                query.write(")")
+
+            if group_by_columns:
+                query.write(" GROUP BY ")
+                query.write(",".join(group_by_columns))
 
             query.write(";")
             return query.getvalue()
