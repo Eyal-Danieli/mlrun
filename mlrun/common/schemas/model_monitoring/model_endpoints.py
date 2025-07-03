@@ -343,17 +343,15 @@ class ApplicationBaseRecord(BaseModel):
 
 
 class ApplicationResultRecord(ApplicationBaseRecord):
-    type: Literal["result"]
     kind: ResultKindApp
     status: ResultStatusApp
     result_name: str
+    type: Literal["result"] = "result"
 
 
 class ApplicationMetricRecord(ApplicationBaseRecord):
-    type: Literal["metric"]
     metric_name: str
-
-
+    type: Literal["metric"] = "metric"
 
 
 def _mapping_attributes(

@@ -888,7 +888,7 @@ class TDEngineConnector(TSDBConnector):
         start: Optional[Union[datetime, str]] = None,
         end: Optional[Union[datetime, str]] = None,
         application_names: Optional[Union[str, list[str]]] = None,
-    ) -> list[dict]:
+    ) -> list[Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]]:
         metric_list = []
         filter_query = ""
         start, end = get_start_end(start=start, end=end, delta=timedelta(hours=24))
@@ -943,12 +943,12 @@ class TDEngineConnector(TSDBConnector):
         if df_results.empty and df_metrics.empty:
             return metric_list
 
-
         def _build_metric_objects(
             df_results: pd.DataFrame,
             df_metrics: pd.DataFrame,
         ) -> list[Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]]:
-            metrics: list[Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]] = []
+            metric_objects = []
+
             if not df_results.empty:
                 df_results.rename(
                     columns={
@@ -957,20 +957,16 @@ class TDEngineConnector(TSDBConnector):
                     inplace=True,
                 )
                 for _, row in df_results.iterrows():
-                    print('[EYAL]: row: ', row)
-                    print('[EYAL]: end infer time: ', row[mm_schemas.WriterEvent.END_INFER_TIME])
-                    print('[EYAL]: end infer time type: ', type(row[mm_schemas.WriterEvent.END_INFER_TIME]))
-                    metrics.append(
+                    metric_objects.append(
                         mm_schemas.ApplicationResultRecord(
-                            type=mm_schemas.ModelEndpointMonitoringMetricType.RESULT.value,
-                            time=row[mm_schemas.WriterEvent.END_INFER_TIME],
-                            name=row[mm_schemas.ResultData.RESULT_NAME],
-                            value=row[mm_schemas.ResultData.RESULT_VALUE],
+                            time=datetime.fromisoformat(row[mm_schemas.WriterEvent.END_INFER_TIME]),
+                            application_name= row[mm_schemas.WriterEvent.APPLICATION_NAME],
+                            result_name=row[mm_schemas.ResultData.RESULT_NAME],
                             kind=row[mm_schemas.ResultData.RESULT_KIND],
                             status=row[mm_schemas.ResultData.RESULT_STATUS],
+                            value=row[mm_schemas.ResultData.RESULT_VALUE],
                         )
                     )
-
 
             if not df_metrics.empty:
                 df_metrics.rename(
@@ -980,28 +976,23 @@ class TDEngineConnector(TSDBConnector):
                     inplace=True,
                 )
                 for _, row in df_metrics.iterrows():
-                    metrics.append(
+                    metric_objects.append(
                         mm_schemas.ApplicationMetricRecord(
-                            type=mm_schemas.ModelEndpointMonitoringMetricType.METRIC.value,
-                            time=row[mm_schemas.WriterEvent.END_INFER_TIME],
-                            name=row[mm_schemas.MetricData.METRIC_NAME],
+                            time=datetime.fromisoformat(row[mm_schemas.WriterEvent.END_INFER_TIME]),
+                            application_name=row[mm_schemas.WriterEvent.APPLICATION_NAME],
+                            metric_name=row[mm_schemas.MetricData.METRIC_NAME],
                             value=row[mm_schemas.MetricData.METRIC_VALUE],
                         )
                     )
-                    # metrics.append(
-                    #     mm_schemas.ModelEndpointMonitoringMetricValues(
-                    #         full_name=get_invocations_fqn(self.project),
-                    #         time=row[mm_schemas.WriterEvent.END_INFER_TIME],
-                    #         name=row[mm_schemas.MetricData.METRIC_NAME],
-                    #         value=row[mm_schemas.MetricData.METRIC_VALUE],
-                    #     )
-                    # )
-            return metrics
 
-        return _build_metric_objects(
-            df_results=df_results,
-            df_metrics=df_metrics,
-        )
+            return metric_objects
+        # Return the built metric objects
+        return _build_metric_objects(df_results=df_results, df_metrics=df_metrics)
+
+        # return _build_metric_objects(
+        #     df_results=df_results,
+        #     df_metrics=df_metrics,
+        # )
 
         # if not df_results.empty:
         #     df_results.rename(
