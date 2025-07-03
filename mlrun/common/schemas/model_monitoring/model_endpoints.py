@@ -14,7 +14,7 @@
 import abc
 import json
 from datetime import datetime
-from typing import Any, NamedTuple, Optional, TypeVar, Literal, Union
+from typing import Any, Literal, NamedTuple, Optional, TypeVar
 from uuid import UUID
 
 from pydantic import validator  # use `validator` if you’re still on Pydantic v1
@@ -295,7 +295,6 @@ def _parse_metric_fqn_to_monitoring_metric(fqn: str) -> ModelEndpointMonitoringM
     return ModelEndpointMonitoringMetric.parse_obj(
         match.groupdict() | {"full_name": fqn}
     )
-
 
 
 class _MetricPoint(NamedTuple):

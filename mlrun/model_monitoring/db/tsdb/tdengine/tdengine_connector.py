@@ -23,7 +23,6 @@ import mlrun.common.schemas.model_monitoring as mm_schemas
 import mlrun.common.types
 import mlrun.model_monitoring.db.tsdb.tdengine.schemas as tdengine_schemas
 import mlrun.model_monitoring.db.tsdb.tdengine.stream_graph_steps
-from mlrun.common.schemas.model_monitoring import ModelEndpointMonitoringResultValues
 from mlrun.datastore.datastore_profile import DatastoreProfile
 from mlrun.model_monitoring.db import TSDBConnector
 from mlrun.model_monitoring.db.tsdb.tdengine.tdengine_connection import (
@@ -888,7 +887,9 @@ class TDEngineConnector(TSDBConnector):
         start: Optional[Union[datetime, str]] = None,
         end: Optional[Union[datetime, str]] = None,
         application_names: Optional[Union[str, list[str]]] = None,
-    ) -> list[Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]]:
+    ) -> list[
+        Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]
+    ]:
         metric_list = []
         filter_query = ""
         start, end = get_start_end(start=start, end=end, delta=timedelta(hours=24))
@@ -943,7 +944,14 @@ class TDEngineConnector(TSDBConnector):
         if df_results.empty and df_metrics.empty:
             return metric_list
 
-        def _build_metric_objects() -> list[Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]]:
+        def _build_metric_objects() -> (
+            list[
+                Union[
+                    mm_schemas.ApplicationResultRecord,
+                    mm_schemas.ApplicationMetricRecord,
+                ]
+            ]
+        ):
             metric_objects = []
 
             if not df_results.empty:
@@ -956,8 +964,12 @@ class TDEngineConnector(TSDBConnector):
                 for _, row in df_results.iterrows():
                     metric_objects.append(
                         mm_schemas.ApplicationResultRecord(
-                            time=datetime.fromisoformat(row[mm_schemas.WriterEvent.END_INFER_TIME]),
-                            application_name= row[mm_schemas.WriterEvent.APPLICATION_NAME],
+                            time=datetime.fromisoformat(
+                                row[mm_schemas.WriterEvent.END_INFER_TIME]
+                            ),
+                            application_name=row[
+                                mm_schemas.WriterEvent.APPLICATION_NAME
+                            ],
                             result_name=row[mm_schemas.ResultData.RESULT_NAME],
                             kind=row[mm_schemas.ResultData.RESULT_KIND],
                             status=row[mm_schemas.ResultData.RESULT_STATUS],
@@ -975,8 +987,12 @@ class TDEngineConnector(TSDBConnector):
                 for _, row in df_metrics.iterrows():
                     metric_objects.append(
                         mm_schemas.ApplicationMetricRecord(
-                            time=datetime.fromisoformat(row[mm_schemas.WriterEvent.END_INFER_TIME]),
-                            application_name=row[mm_schemas.WriterEvent.APPLICATION_NAME],
+                            time=datetime.fromisoformat(
+                                row[mm_schemas.WriterEvent.END_INFER_TIME]
+                            ),
+                            application_name=row[
+                                mm_schemas.WriterEvent.APPLICATION_NAME
+                            ],
                             metric_name=row[mm_schemas.MetricData.METRIC_NAME],
                             value=row[mm_schemas.MetricData.METRIC_VALUE],
                         )
@@ -985,7 +1001,6 @@ class TDEngineConnector(TSDBConnector):
             return metric_objects
 
         return _build_metric_objects()
-
 
     def get_metrics_metadata(
         self,

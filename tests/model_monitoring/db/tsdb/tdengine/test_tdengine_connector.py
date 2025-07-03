@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import uuid
 from collections.abc import Iterator
 from datetime import datetime, timezone
@@ -27,9 +26,13 @@ from mlrun.common.schemas.model_monitoring import (
 from mlrun.datastore.datastore_profile import DatastoreProfileTDEngine
 from mlrun.model_monitoring.db.tsdb.tdengine import TDEngineConnector
 from mlrun.model_monitoring.db.tsdb.tdengine.tdengine_connection import TDEngineError
+from tests.model_monitoring.db.tsdb.tdengine.test_tdengine_connection import (
+    connection_string,
+)
 
 project = "test-tdengine-connector"
-connection_string = os.getenv("MLRUN_MODEL_ENDPOINT_MONITORING__TSDB_CONNECTION")
+# connection_string = os.getenv("MLRUN_MODEL_ENDPOINT_MONITORING__TSDB_CONNECTION")
+connection_string = "taosws://root:taosdata@localhost:6041"
 database = "test_tdengine_connector_" + uuid.uuid4().hex
 
 
@@ -153,8 +156,8 @@ def test_write_application_event(
 
     assert len(latest_metrics) == 2
     first_metric = latest_metrics[0]
-    assert first_metric["status"] == 2
-    assert first_metric["value"] == 123
+    assert first_metric.status == 0
+    assert first_metric.value == 123
 
     # now let's write another result with different app and result_status
     data_v3 = data.copy()
