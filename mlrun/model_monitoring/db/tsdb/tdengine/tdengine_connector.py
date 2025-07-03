@@ -943,10 +943,7 @@ class TDEngineConnector(TSDBConnector):
         if df_results.empty and df_metrics.empty:
             return metric_list
 
-        def _build_metric_objects(
-            df_results: pd.DataFrame,
-            df_metrics: pd.DataFrame,
-        ) -> list[Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]]:
+        def _build_metric_objects() -> list[Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]]:
             metric_objects = []
 
             if not df_results.empty:
@@ -986,49 +983,9 @@ class TDEngineConnector(TSDBConnector):
                     )
 
             return metric_objects
-        # Return the built metric objects
-        return _build_metric_objects(df_results=df_results, df_metrics=df_metrics)
 
-        # return _build_metric_objects(
-        #     df_results=df_results,
-        #     df_metrics=df_metrics,
-        # )
+        return _build_metric_objects()
 
-        # if not df_results.empty:
-        #     df_results.rename(
-        #         columns={
-        #             f"last({mm_schemas.ResultData.RESULT_VALUE})": mm_schemas.ResultData.RESULT_VALUE,
-        #         },
-        #         inplace=True,
-        #     )
-        #     for _, row in df_results.iterrows():
-        #         metric_list.append(
-        #             {
-        #                 "type": "result",
-        #                 "time": row[mm_schemas.WriterEvent.END_INFER_TIME],
-        #                 "name": row[mm_schemas.ResultData.RESULT_NAME],
-        #                 "kind": row[mm_schemas.ResultData.RESULT_KIND],
-        #                 "status": row[mm_schemas.ResultData.RESULT_STATUS],
-        #                 "value": row[mm_schemas.ResultData.RESULT_VALUE],
-        #             }
-        #         )
-        # if not df_metrics.empty:
-        #     df_metrics.rename(
-        #         columns={
-        #             f"last({mm_schemas.MetricData.METRIC_VALUE})": mm_schemas.MetricData.METRIC_VALUE,
-        #         },
-        #         inplace=True,
-        #     )
-        #     for _, row in df_metrics.iterrows():
-        #         metric_list.append(
-        #             {
-        #                 "type": "metric",
-        #                 "time": row[mm_schemas.WriterEvent.END_INFER_TIME],
-        #                 "name": row[mm_schemas.MetricData.METRIC_NAME],
-        #                 "value": row[mm_schemas.MetricData.METRIC_VALUE],
-        #             }
-        #         )
-        # return metric_list
 
     def get_metrics_metadata(
         self,

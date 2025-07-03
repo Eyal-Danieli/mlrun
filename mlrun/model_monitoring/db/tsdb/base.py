@@ -380,7 +380,7 @@ class TSDBConnector(ABC):
         start: Optional[Union[datetime, str]] = None,
         end: Optional[Union[datetime, str]] = None,
         application_names: Optional[Union[str, list[str]]] = None,
-    ) -> list[dict]:
+    ) -> list[Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]]:
         """
         Calculate the latest metrics and results across applications.
         :param start:              The start time of the query. Last 24 hours is used by default.
