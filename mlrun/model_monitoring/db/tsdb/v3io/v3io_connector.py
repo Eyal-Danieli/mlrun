@@ -1329,6 +1329,10 @@ class V3IOTSDBConnector(TSDBConnector):
         df_results = get_application_endpoints_records("results")
         df_metrics = get_application_endpoints_records("metrics")
 
+        return df_results, df_metrics
+
+
+
 
 
     def calculate_latest_metrics(
