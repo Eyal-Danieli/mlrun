@@ -1312,8 +1312,8 @@ class V3IOTSDBConnector(TSDBConnector):
     ) -> dict[str, int]:
 
         start, end = get_start_end(start=start, end=end, delta=timedelta(hours=24))
+        group_by_columns = [mm_schemas.ApplicationEvent.APPLICATION_NAME, mm_schemas.ApplicationEvent.ENDPOINT_ID]
         def get_application_endpoints_records(record_type: Literal["metrics", "results"]):
-            group_by_columns = [mm_schemas.ApplicationEvent.APPLICATION_NAME, mm_schemas.ApplicationEvent.ENDPOINT_ID]
             if record_type == "results":
                 table_path = self.tables[mm_schemas.V3IOTSDBTables.APP_RESULTS]
             else:
@@ -1329,8 +1329,21 @@ class V3IOTSDBConnector(TSDBConnector):
         df_results = get_application_endpoints_records("results")
         df_metrics = get_application_endpoints_records("metrics")
 
-        return df_results, df_metrics
+        if df_results.empty and df_metrics.empty:
+            return {}
 
+        # Combine the two dataframes and count unique endpoints per application
+        combined_df = pd.concat([df_results, df_metrics], ignore_index=True)
+        if combined_df.empty:
+            return {}
+        combined_df.drop_duplicates(subset=group_by_columns, inplace=True)
+
+
+        grouped_df = combined_df.groupby(
+            mm_schemas.WriterEvent.APPLICATION_NAME
+        ).count()
+
+        return grouped_df[mm_schemas.WriterEvent.ENDPOINT_ID].to_dict()
 
 
 
