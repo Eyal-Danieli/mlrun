@@ -1356,4 +1356,122 @@ class V3IOTSDBConnector(TSDBConnector):
     ) -> list[
         Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]
     ]:
-        raise NotImplementedError
+        metric_list = []
+        filter_query = ""
+        start, end = get_start_end(start=start, end=end, delta=timedelta(hours=24))
+        # Get the latest results
+        def get_latest_metrics_records(
+            record_type: Literal["metrics", "results"]
+        ) -> Union[pd.DataFrame]:
+            group_by_columns = [mm_schemas.ApplicationEvent.APPLICATION_NAME]
+            if record_type == "results":
+
+                table_path = self.tables[mm_schemas.V3IOTSDBTables.APP_RESULTS]
+                columns = [
+                    f"last({mm_schemas.ResultData.RESULT_STATUS})",
+                    f"last({mm_schemas.ResultData.RESULT_VALUE})",
+                    f"last({mm_schemas.ResultData.RESULT_KIND})"]
+                group_by_columns += [
+                    mm_schemas.ResultData.RESULT_NAME,
+                ]
+            else:
+                table_path = self.tables[mm_schemas.V3IOTSDBTables.METRICS]
+                columns = [f"last({mm_schemas.MetricData.METRIC_VALUE})"]
+                group_by_columns += [
+                    mm_schemas.MetricData.METRIC_NAME,
+                ]
+            sql_query = self._get_sql_query(
+                table_path=table_path,
+                columns=columns,
+                group_by_columns=group_by_columns,
+                application_names=application_names,
+            )
+
+
+            # if record_type == "results":
+            #     table_path = mm_schemas.V3IOTSDBTables.APP_RESULTS
+            #     columns = [
+            #         mm_schemas.ResultData.RESULT_NAME,
+            #         mm_schemas.ResultData.RESULT_VALUE,
+            #         mm_schemas.ResultData.RESULT_STATUS,
+            #         mm_schemas.ResultData.RESULT_KIND,
+            #     ]
+            # else:
+            #     table_path = mm_schemas.V3IOTSDBTables.METRICS
+            #     columns = [mm_schemas.MetricData.METRIC_NAME, mm_schemas.MetricData.METRIC_VALUE]
+            #
+            # return self._get_records(
+            #     table=table_path,
+            #     start=start,
+            #     end=end,
+            #     columns=columns,
+            #     filter_query=filter_query,
+            #     agg_funcs=["last"],
+            #
+            # )
+
+        df_results = get_latest_metrics_records("results")
+        df_metrics = get_latest_metrics_records("metrics")
+
+        if df_results.empty and df_metrics.empty:
+            return metric_list
+        print("[EYAL]: df_head", df_results.head())
+        print("[EYAL]: columns in df_results", df_results.columns)
+        print("[EYAL]: columns in df_results len", len(df_results.columns))
+
+
+
+        for i in df_metrics.columns:
+            print("[EYAL]: column in df_metrics", i)
+
+        print("[EYAL]: columns in df_metrics", df_metrics.columns)
+        print("[EYAL]: index in df_results", df_results.index)
+        print("[EYAL]: index in df_metrics", df_results.index)
+
+        # Convert the results DataFrame to a list of ApplicationResultRecord
+        def build_metric_objects() -> list[
+            Union[mm_schemas.ApplicationResultRecord, mm_schemas.ApplicationMetricRecord]
+        ]:
+
+            metric_objects = []
+            if not df_results.empty:
+                df_results.rename(
+                    columns={
+                        f"last({mm_schemas.ResultData.RESULT_VALUE})": mm_schemas.ResultData.RESULT_VALUE,
+                        f"last({mm_schemas.ResultData.RESULT_STATUS})": mm_schemas.ResultData.RESULT_STATUS,
+                        f"last({mm_schemas.ResultData.RESULT_KIND})": mm_schemas.ResultData.RESULT_KIND,
+                    },
+                    inplace=True,
+                )
+                for i in df_results.columns:
+                    print("[EYAL]: column in df_results", i)
+                for _, row in df_results.iterrows():
+                    print("[EYAL]: row in df_results", row)
+
+                    metric_objects.append(
+                        mm_schemas.ApplicationResultRecord(
+                            result_name=row[mm_schemas.ResultData.RESULT_NAME],
+                            kind=row[mm_schemas.ResultData.RESULT_KIND],
+                            status=row[mm_schemas.ResultData.RESULT_STATUS],
+                            value=row[mm_schemas.ResultData.RESULT_VALUE],
+                        )
+                    )
+            if not df_metrics.empty:
+
+                df_metrics.rename(
+                    columns={
+                        f"last({mm_schemas.MetricData.METRIC_VALUE})": mm_schemas.MetricData.METRIC_VALUE,
+                    },
+                    inplace=True,
+                )
+
+                for _, row in df_metrics.iterrows():
+                    metric_objects.append(
+                        mm_schemas.ApplicationMetricRecord(
+                            metric_name=row[mm_schemas.MetricData.METRIC_NAME],
+                            value=row[mm_schemas.MetricData.METRIC_VALUE],
+                        )
+                    )
+            return metric_objects
+
+        return build_metric_objects()
