@@ -391,7 +391,7 @@ def test_normalize_dict_for_v3io_frames(
 
 
 @pytest.mark.usefixtures("_mock_frames_client_extended")
-def count_read_results_by_status():
+def test_count_read_results_by_status():
     """Test reading results by status from V3IOTSDBConnector."""
     tsdb_connector = V3IOTSDBConnector(project="fictitious-one")
     data = tsdb_connector.count_results_by_status()
@@ -410,3 +410,11 @@ def count_read_results_by_status():
 
     data = tsdb_connector.count_results_by_status(result_status_list=[-1])
     assert len(data) == 0
+
+@pytest.mark.usefixtures("_mock_frames_client_extended")
+def test_processed_model_endpoints():
+    """Test reading processed model endpoints from V3IOTSDBConnector."""
+    tsdb_connector = V3IOTSDBConnector(project="fictitious-one")
+    data = tsdb_connector.count_processed_model_endpoints()
+
+    print("here")
