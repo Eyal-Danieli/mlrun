@@ -1387,6 +1387,12 @@ class V3IOTSDBConnector(TSDBConnector):
                 application_names=application_names,
             )
 
+            return self.frames_client.read(backend=_TSDB_BE,
+                                    start=start,
+                end=end,
+                query=sql_query,
+            )
+
 
             # if record_type == "results":
             #     table_path = mm_schemas.V3IOTSDBTables.APP_RESULTS
