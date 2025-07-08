@@ -251,6 +251,62 @@ def tsdb_df_extended() -> pd.DataFrame:
         ],
     )
 
+@pytest.fixture
+def df_results() -> pd.DataFrame:
+    return pd.DataFrame.from_records(
+        [
+            (
+                pd.Timestamp("2024-04-02 18:00:28", tz="UTC"),
+                "some_app_v1",
+                "some_result_v1",
+            0,
+            0.123,
+            2),
+            (
+                pd.Timestamp("2024-04-02 18:00:28", tz="UTC"),
+                "some_app_v1",
+                "some_result_v2",
+            1,
+            0.456,
+            2),
+            (
+                pd.Timestamp("2024-04-02 18:00:28", tz="UTC"),
+                "some_app_v2",
+                "some_result_v3",
+            0,
+            0.789,
+            1),
+        ],
+        index="time",
+        columns=["time", "application_name", "result_name", "last(result_kind)", "last(result_value)", "last(result_status)"],
+    )
+
+@pytest.fixture
+def df_metrics() -> pd.DataFrame:
+    return pd.DataFrame.from_records(
+        [
+            (
+                pd.Timestamp("2024-04-02 18:00:28", tz="UTC"),
+                "some_app_v1",
+                "some_metric_v1",
+                0.123,
+            ),
+            (
+                pd.Timestamp("2024-04-02 18:00:28", tz="UTC"),
+                "some_app_v1",
+                "some_metric_v2",
+                0.456,
+            ),
+            (
+                pd.Timestamp("2024-04-02 18:00:28", tz="UTC"),
+                "some_app_v2",
+                "some_metric_v3",
+                0.789,
+            ),
+        ],
+        index="time",
+        columns=["time", "application_name", "metric_name", "last(metric_value)"],
+    )
 
 @pytest.fixture
 def predictions_df() -> pd.DataFrame:
@@ -292,10 +348,31 @@ def _mock_frames_client_extended(tsdb_df_extended: pd.DataFrame) -> Iterator[Non
         yield
 
 
+
+
 @pytest.fixture
 def _mock_frames_client_predictions(predictions_df: pd.DataFrame) -> Iterator[None]:
     frames_client_mock = Mock()
     frames_client_mock.read = Mock(return_value=predictions_df)
+
+    with patch.object(
+        mlrun.utils.v3io_clients, "get_frames_client", return_value=frames_client_mock
+    ):
+        yield
+
+
+@pytest.fixture
+def _mock_frames_client_results(df_results: pd.DataFrame, df_metrics: pd.DataFrame) -> Iterator[None]:
+    frames_client_mock = Mock()
+
+    def read_data(*args, **kwargs):
+        table = kwargs.get("table") or (args[0] if args else None)
+        if table == "results":
+            return Mock(return_value=df_results)
+        else:
+            return Mock(return_value=df_metrics)
+
+    frames_client_mock.read = Mock(side_effect=read_data)
 
     with patch.object(
         mlrun.utils.v3io_clients, "get_frames_client", return_value=frames_client_mock
@@ -417,4 +494,17 @@ def test_processed_model_endpoints():
     tsdb_connector = V3IOTSDBConnector(project="fictitious-one")
     data = tsdb_connector.count_processed_model_endpoints()
 
-    print("here")
+    assert len(data) == 3
+    assert data["histogram-data-drift"] == 2
+    assert data["test-app"] == 1
+    assert data["test-app-v2"] == 1
+
+@pytest.mark.usefixtures("_mock_frames_client_results")
+def test_calculate_latest_metrics():
+    """Test calculating latest metrics from V3IOTSDBConnector."""
+    tsdb_connector = V3IOTSDBConnector(project="fictitious-one")
+    data = tsdb_connector.calculate_latest_metrics()
+
+    assert len(data) == 5
+
+
