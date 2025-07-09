@@ -318,9 +318,10 @@ class _V3IORecordsChecker:
 @TestMLRunSystemModelMonitoring.skip_test_if_env_not_configured
 @pytest.mark.enterprise
 class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
-    project_name = "test-app-flow"
+    project_name = "test-app-flow-v19"
     # Set image to "<repo>/mlrun:<tag>" for local testing
-    image: typing.Optional[str] = None
+    # image: typing.Optional[str] = None
+    image = "artifactory.iguazeng.com:10557/eyald/mlrun:1.11.0"
     error_count = 10
 
     @classmethod
@@ -525,6 +526,7 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
                 model_artifact=f"store://models/{cls.project_name}/{cls.model_name}_{with_training_set}:latest",
                 input_path="inputs",
                 result_path="outputs",
+                execution_mechanism="naive",
             )
             graph = serving_fn.set_topology("flow", engine="async")
             graph.to(model_runner_step).respond()
@@ -744,74 +746,38 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
             # Evidently app was not deployed
             pass
 
-        # TODO: Remove this check when the v3io function summary is supported (ML-10384)
-        if self._tsdb_storage.type == mm_constants.TSDBTarget.TDEngine:
-            if _DefaultDataDriftAppData in self.apps_data:
-                # test a specific function summary
-                hist_function_summary = self.project.get_monitoring_function_summary(
-                    name=HistogramDataDriftApplication.NAME, include_latest_metrics=True
-                )
-                assert hist_function_summary.stats
-                assert len(hist_function_summary.stats["metrics"]) == 4
+        if _DefaultDataDriftAppData in self.apps_data:
+            # test a specific function summary
+            hist_function_summary = self.project.get_monitoring_function_summary(
+                name=HistogramDataDriftApplication.NAME, include_latest_metrics=True
+            )
+            assert hist_function_summary.stats
+            assert len(hist_function_summary.stats["metrics"]) == 4
 
-                first_metric = hist_function_summary.stats["metrics"][0]
-                assert first_metric["type"] == "result"
-                # verify the expected keys of a result
-                assert first_metric.keys() == {
-                    "kind",
-                    "result_name",
-                    "status",
-                    "time",
-                    "type",
-                    "value",
-                }, "The result keys are not as expected"
+            first_metric = hist_function_summary.stats["metrics"][0]
+            assert first_metric["type"] == "result"
+            # verify the expected keys of a result
+            assert first_metric.keys() == {
+                "kind",
+                "result_name",
+                "status",
+                "time",
+                "type",
+                "value",
+            }, "The result keys are not as expected"
 
-                assert first_metric["result_name"] == "general_drift"
-                assert first_metric["value"] == 1
+            assert first_metric["result_name"] == "general_drift"
+            assert first_metric["value"] == 1
 
-                second_metric = hist_function_summary.stats["metrics"][1]
-                assert second_metric["type"] == "metric"
-                # verify the expected keys of a metric
-                assert second_metric.keys() == {
-                    "metric_name",
-                    "time",
-                    "type",
-                    "value",
-                }, "The metric keys are not as expected"
-
-        # test a specific function summary
-        hist_function_summary = self.project.get_monitoring_function_summary(
-            name=HistogramDataDriftApplication.NAME, include_latest_metrics=True
-        )
-        assert hist_function_summary.stats
-        assert len(hist_function_summary.stats["metrics"]) == 4
-
-        first_metric = hist_function_summary.stats["metrics"][0]
-        assert first_metric["type"] == "result"
-        # verify the expected keys of a result
-        assert first_metric.keys() == {
-            "kind",
-            "result_name",
-            "status",
-            "time",
-            "type",
-            "value",
-            "application_name",
-        }, "The result keys are not as expected"
-
-        assert first_metric["result_name"] == "general_drift"
-        assert first_metric["value"] == 1
-
-        second_metric = hist_function_summary.stats["metrics"][1]
-        assert second_metric["type"] == "metric"
-        # verify the expected keys of a metric
-        assert second_metric.keys() == {
-            "metric_name",
-            "time",
-            "type",
-            "value",
-            "application_name",
-        }, "The metric keys are not as expected"
+            second_metric = hist_function_summary.stats["metrics"][1]
+            assert second_metric["type"] == "metric"
+            # verify the expected keys of a metric
+            assert second_metric.keys() == {
+                "metric_name",
+                "time",
+                "type",
+                "value",
+            }, "The metric keys are not as expected"
 
     @pytest.mark.parametrize("with_training_set", [True, False])
     @pytest.mark.parametrize("with_model_runner", [True, False])
