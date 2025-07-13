@@ -167,3 +167,29 @@ async def test_nuclio_delete_function(
         status=http.HTTPStatus.NO_CONTENT,
     )
     await nuclio_client.delete_function("test-basic", "default")
+
+@pytest.mark.asyncio
+async def test_nuclio_get_v3io_shard_lags(
+    api_url,
+    nuclio_client,
+    mock_aioresponse,
+):
+    request_url = f"{api_url}/api/v3io_streams/get_shard_lags"
+    payload = {
+        "consumerGroup": "serving",
+        "containerName": "users",
+        "streamPath": "some_path",
+    }
+
+    mock_aioresponse.post(
+        request_url,
+        payload=payload,
+        status=http.HTTPStatus.OK,
+    )
+    await nuclio_client.get_v3io_shard_lags(
+        consumer_group=payload["consumerGroup"],
+        container_name=payload["containerName"],
+        stream_path=payload["streamPath"],
+    )
+
+

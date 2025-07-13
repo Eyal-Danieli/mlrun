@@ -822,12 +822,17 @@ class MonitoringDeployment:
                                                   returned.
         :param labels:                            List of labels to filter the response. Default is None.
         :param include_stats:                     If True, the function will include the statistics of the monitoring
-                                                  applications. Currently, the statistics include the number of
-                                                  detections and possible detections.
+                                                  applications. Currently, the statistics include:
+                                                  - The number of detections that were processed by the application.
+                                                  - The number of possible detections that were processed by the
+                                                  application.
+                                                  - Stream statistics such as amount of committed events and lag.
         :param include_infra:                     If True, include the model monitoring infrastructure functions in the
                                                   response.
         :param include_processed_model_endpoints: If True, include the number of processed model endpoints in the
                                                   response.
+        :param agg_stream_stats:                  If True, aggregate stream statistics by shard/partition for each
+                                                  function.
         :return:                                  A list of FunctionSummary objects, each representing a model
                                                   monitoring function.
         """
@@ -853,7 +858,6 @@ class MonitoringDeployment:
 
         if include_stats:
             await self._enrich_with_stream_stats(function_summaries=function_summaries, agg_stats=agg_stream_stats)
-
 
         return function_summaries
 
@@ -989,34 +993,6 @@ class MonitoringDeployment:
                 )
         return function_summaries_list, base_period
 
-    # async def _enrich_with_stream_stats(self, function_name: str, stream_path: str, container_name: str) -> dict:
-    #     """
-    #     Enrich the function with stream stats.
-    #     :param function_name: The name of the function to enrich.
-    #     :return: A dictionary with the stream stats.
-    #     """
-    #     shard_lags = {}
-    #     print("[EYAL]: getting shard lags for func: ", function_name)
-    #     print("[EYAL]: tsdb connector type: ", self._tsdb_connector.type)
-    #     print("[EYAL]: mm_constants.TSDBTarget.V3IO_TSDB: ", mm_constants.TSDBTarget.V3IO_TSDB)
-    #     print("[EYAL]: self._tsdb_connector.type == mm_constants.TSDBTarget.V3IO_TSDB: ", self._tsdb_connector.type == mm_constants.TSDBTarget.V3IO_TSDB)
-    #     if type(self._stream_profile) == mlrun.datastore.datastore_profile.DatastoreProfileV3io:
-    #         print("[EYAL]: getting shard lags for function: ", function_name)
-    #         async with framework.utils.clients.async_nuclio.Client(self.auth_info) as client:
-    #             shard_lags = await client.get_v3io_shard_lags(project_name=self.project, function_name=function_name,
-    #                                                           stream_path=stream_path,
-    #                                                           container_name=container_name)
-    #             print("[EYAL]: shard lags of function:", shard_lags)
-    #                 # if not shard_lags:
-    #                 #     print("[EYAL]: shard lags of writer didnt work with pipelines:", stream_path)
-    #                 #     shard_lags = await client.get_v3io_shard_lags(project_name=self.project,
-    #                 #                                                   function_name=function_name,
-    #                 #                                                   container_name=container_name)
-    #                 #     print("[EYAL]: shard lags of writer without stream path:", shard_lags)
-    #
-    #     return shard_lags
-
-
     async def _enrich_with_stream_stats(self,
                                         function_summaries: typing.Optional[list[mlrun.common.schemas.model_monitoring.FunctionSummary]],
                                         agg_stats: bool = True):
@@ -1029,7 +1005,6 @@ class MonitoringDeployment:
         if type(self._stream_profile) == mlrun.datastore.datastore_profile.DatastoreProfileV3io:
             async with framework.utils.clients.async_nuclio.Client(self.auth_info) as client:
                 for function in function_summaries:
-                    print("[EYAL]: getting stream path for function: ", function.name)
                     stream_path = mlrun.model_monitoring.get_stream_path(
                         project=self.project,
                         function_name=function.name,
@@ -1045,15 +1020,12 @@ class MonitoringDeployment:
                         )
                     )
 
-                    print("[EYAL]: stream path after parsing:", stream_path)
-
-
 
                     stream_stats = await client.get_v3io_shard_lags(project_name=self.project, function_name=function.name,
                                                                   stream_path=stream_path,
                                                                   container_name=container,)
                     print("[EYAL]: stream stats of function:", stream_stats)
-                    # stream_stats = stream_stats.get(stream_path, {}).get("serving", {})
+                    stream_stats = stream_stats.get(f"{container}/{stream_path}", {}).get("serving", {})
                     if stream_stats and agg_stats:
                         lag = 0
                         committed = 0
@@ -1067,16 +1039,11 @@ class MonitoringDeployment:
                     else:
                         # remove "current" key from the stream stats shards
                         for _, stats in stream_stats.items():
-                            stats.pop('current')
+                            stats.pop('current', None)
 
                     print("[EYAL]: going to enrich function with stream stats:", stream_stats)
                     function.stats["stream_stats"] = stream_stats
-                    # if not shard_lags:
-                    #     print("[EYAL]: shard lags of writer didnt work with pipelines:", stream_path)
-                    #     shard_lags = await client.get_v3io_shard_lags(project_name=self.project,
-                    #                                                   function_name=function_name,
-                    #                                                   container_name=container_name)
-                    #     print("[EYAL]: shard lags of writer without stream path:", shard_lags)
+
 
 
 
