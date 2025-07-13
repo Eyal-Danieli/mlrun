@@ -897,12 +897,11 @@ class MonitoringDeployment:
 
         if include_latest_metrics:
             # Enrich the function summary with latest metrics
-            function_summary[0].stats["metrics"] = (
-                self._tsdb_connector.calculate_latest_metrics(
-                    start=start,
-                    end=end,
-                    application_names=[name],
-                )
+            function_summary[0].stats["metrics"] = await run_in_threadpool(
+                self._tsdb_connector.calculate_latest_metrics,
+                start=start,
+                end=end,
+                application_names=[name],
             )
 
         return function_summary[0]
@@ -1054,7 +1053,7 @@ class MonitoringDeployment:
                                                                   stream_path=stream_path,
                                                                   container_name=container,)
                     print("[EYAL]: stream stats of function:", stream_stats)
-                    stream_stats = stream_stats.get(stream_path, {}).get("serving", {})
+                    # stream_stats = stream_stats.get(stream_path, {}).get("serving", {})
                     if stream_stats and agg_stats:
                         lag = 0
                         committed = 0
@@ -1119,7 +1118,8 @@ class MonitoringDeployment:
 
         if include_stats:
             # enrich func stats with #detections and #possible_detections
-            detection_stats_dict = self._tsdb_connector.count_results_by_status(
+            detection_stats_dict = await run_in_threadpool(
+                self._tsdb_connector.count_results_by_status,
                 start=start,
                 end=end,
                 result_status_list=[
@@ -1129,10 +1129,11 @@ class MonitoringDeployment:
             )
         if include_processed_model_endpoints:
             # enrich func stats with processed model endpoints
-            processed_model_endpoints_dict = (
-                self._tsdb_connector.count_processed_model_endpoints(
-                    start=start, end=end, application_names=names
-                )
+            processed_model_endpoints_dict = await run_in_threadpool(
+                self._tsdb_connector.count_processed_model_endpoints,
+                start=start,
+                end=end,
+                application_names=names,
             )
 
         for function in mm_functions_list:
