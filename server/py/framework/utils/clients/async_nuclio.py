@@ -157,6 +157,47 @@ class Client:
             json={"metadata": {"name": name}},
         )
 
+    async def get_v3io_shard_lags(self, project_name: str,
+                                  stream_path: Optional[str] = None,
+                                  function_name: Optional[str] = None,
+                                  consumer_group: str = "serving",
+                                  container_name: str = "projects",
+                                  ):
+        """
+        Get the v3io shard lags from the Nuclio API.
+        This is used to monitor the lag of the v3io shards in the Nuclio functions.
+        """
+        print("[EYAL]: now in async nuclio client get_v3io_shard_lags")
+        headers = {
+            NUCLIO_PROJECT_NAME_HEADER: project_name,
+        }
+
+        if not stream_path:
+            if not function_name:
+                raise mlrun.errors.MLRunInvalidArgumentError(
+                    "Either 'stream_path' or 'function_name' must be provided"
+                )
+            stream_path = f"/{project_name}/model-endpoints/stream-{function_name}-v1"
+
+
+
+        print("[EYAL]: Getting v3io shard lags from Nuclio API: ", stream_path)
+        payload = {
+            "consumerGroup": consumer_group,
+            "containerName": container_name,
+            "streamPath": stream_path,
+        }
+        response = await self._send_request_to_api(
+            method="POST",
+            path="/api/v3io_streams/get_shard_lags",
+            error_message="Failed to get v3io shard lags",
+            json=payload,
+            headers=headers,
+        )
+
+        print("[EYAL]: v3io shard lags response:", response)
+        return response
+
     def _set_iguazio_labels(self, nuclio_object, project_name):
         nuclio_object.metadata.labels[
             mlrun_constants.MLRunInternalLabels.nuclio_project_name

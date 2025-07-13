@@ -318,9 +318,10 @@ class _V3IORecordsChecker:
 @TestMLRunSystemModelMonitoring.skip_test_if_env_not_configured
 @pytest.mark.enterprise
 class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
-    project_name = "test-app-flow"
+    project_name = "test-app-flow-v18"
     # Set image to "<repo>/mlrun:<tag>" for local testing
-    image: typing.Optional[str] = None
+    image = "artifactory.iguazeng.com:10557/eyald/mlrun:1.11.0"
+    # image: typing.Optional[str] = None
     error_count = 10
 
     @classmethod
@@ -744,8 +745,10 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
         except mlrun.errors.MLRunNotFoundError:
             # Evidently app was not deployed
             pass
-
+        print("[EYAL]: HEREHERHREHER v1")
         if _DefaultDataDriftAppData in self.apps_data:
+            print("[EYAL]: HEREHERHREHER v2")
+
             # test a specific function summary
             hist_function_summary = self.project.get_monitoring_function_summary(
                 name=HistogramDataDriftApplication.NAME, include_latest_metrics=True

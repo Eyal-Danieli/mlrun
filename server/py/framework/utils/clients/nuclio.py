@@ -199,6 +199,27 @@ class Client(
         response_body = response.json()
         return response_body["dashboard"]["label"]
 
+    def get_v3io_shard_lags(
+        self,
+        auth_info: mlrun.common.schemas.AuthInfo = mlrun.common.schemas.AuthInfo(),
+    ):
+        """
+        Get the v3io shard lags from the Nuclio API.
+        This is used to monitor the lag of the v3io shards in the Nuclio dashboard.
+        """
+        payload = {
+            "consumerGroup": "serving",
+            "containerName": "projects",
+            "streamPath": "/tdengine-v1/model-endpoints/stream-histogram-data-drift-v1",
+        }
+
+        response = self._send_request_to_api(
+            "GET", "v3io_streams/get_shard_lags", params=payload, auth_info=auth_info
+        )
+        response_body = response.json()
+        print("[EYAL]: response_body", response_body)
+        return response_body.get("shard_lags", {})
+
     def _get_project_from_nuclio(
         self, name, auth_info: mlrun.common.schemas.AuthInfo = None
     ):
@@ -240,7 +261,6 @@ class Client(
         auth = None
         if auth_info:
             auth = auth_info.to_nuclio_auth_info().to_requests_auth()
-
         response = self._session.request(
             method,
             url,

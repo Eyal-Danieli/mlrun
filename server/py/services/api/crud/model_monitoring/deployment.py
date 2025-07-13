@@ -57,6 +57,7 @@ from mlrun.utils import logger
 import framework.api.utils
 import framework.db.session
 import framework.utils.background_tasks
+import framework.utils.clients.async_nuclio
 import framework.utils.singletons.k8s
 import services.api.api.endpoints.nuclio
 import services.api.crud.model_monitoring.helpers
@@ -794,7 +795,7 @@ class MonitoringDeployment:
             tag="*",
         )
 
-    def function_summaries(
+    async def function_summaries(
         self,
         start: typing.Optional[datetime] = None,
         end: typing.Optional[datetime] = None,
@@ -803,6 +804,7 @@ class MonitoringDeployment:
         include_stats: bool = True,
         include_infra: bool = True,
         include_processed_model_endpoints: bool = False,
+        agg_stream_stats: bool = True,
     ) -> list[mlrun.common.schemas.model_monitoring.FunctionSummary]:
         """
         Retrieve a list of all the model monitoring functions with their summaries. Note that the response includes
@@ -830,13 +832,14 @@ class MonitoringDeployment:
                                                   monitoring function.
         """
 
+
         # Enrich response with infra functions
-        infra_function_summaries_list, base_period = self._get_function_summary_infra(
+        infra_function_summaries_list, base_period = await self._get_function_summary_infra(
             enrich_with_infra=include_infra
         )
 
         # Enrich response with monitoring applications
-        application_function_summaries_list = self._get_function_summary_applications(
+        application_function_summaries_list = await self._get_function_summary_applications(
             base_period=base_period,
             start=start,
             end=end,
@@ -846,9 +849,15 @@ class MonitoringDeployment:
             include_processed_model_endpoints=include_processed_model_endpoints,
         )
 
-        return infra_function_summaries_list + application_function_summaries_list
+        function_summaries = infra_function_summaries_list + application_function_summaries_list
 
-    def function_summary(
+        if include_stats:
+            await self._enrich_with_stream_stats(function_summaries=function_summaries, agg_stats=agg_stream_stats)
+
+
+        return function_summaries
+
+    async def function_summary(
         self,
         name: str,
         start: typing.Optional[datetime] = None,
@@ -872,13 +881,14 @@ class MonitoringDeployment:
         start = start or (now - timedelta(hours=24))
         end = end or now
 
-        function_summary = self.function_summaries(
+        function_summary = await self.function_summaries(
             start=start,
             end=end,
             names=[name],
             include_infra=False,
             include_stats=True,
             include_processed_model_endpoints=True,
+            agg_stream_stats=False,
         )
         if not function_summary:
             raise mlrun.errors.MLRunNotFoundError(
@@ -897,7 +907,7 @@ class MonitoringDeployment:
 
         return function_summary[0]
 
-    def _get_function_summary_infra(
+    async def _get_function_summary_infra(
         self,
         enrich_with_infra: bool = True,
     ) -> tuple[list[mlrun.common.schemas.model_monitoring.FunctionSummary], int]:
@@ -920,16 +930,49 @@ class MonitoringDeployment:
 
             if not infra_mm_functions:
                 logger.info("No model monitoring infrastructure functions found")
+
             for function in infra_mm_functions:
+                print("[EYAL]: getting a nuclio client")
+
+                print("[EYAL]: get stream path")
+
+                # stream_path = mlrun.model_monitoring.get_stream_path(
+                #     project=self.project,
+                #     function_name=function["metadata"]["name"],
+                #     secret_provider=self._secret_provider,
+                #     profile=self.__stream_profile,
+                # )
+                #
+                # print("[EYAL]: stream path:", stream_path)
+                #
+                #
+                # _, container, stream_path = (
+                #     mlrun.common.model_monitoring.helpers.parse_model_endpoint_store_prefix(
+                #         stream_path
+                #     )
+                # )
+                # get shard lags
+                # async with framework.utils.clients.async_nuclio.Client(self.auth_info) as client:
+                #     shard_lags = await client.get_v3io_shard_lags(project_name=self.project, function_name=function["metadata"]["name"])
+
+                # Enrich with shard lags
+                # shard_lags = await self._enrich_with_stream_stats(function_name=function["metadata"]["name"],
+                #                                                   stream_path=stream_path,
+                #                                                   container_name=container,)
+
+
                 function_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_function_dict(
-                    function, func_type="infra"
+                    function, func_type="infra",
                 )
+
+
                 function_summaries_list.append(function_summary)
                 if (
                     function["metadata"]["name"]
                     == mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER
                 ):
                     base_period = self._get_base_period(controller_func=function)
+
         else:
             # getting the base period from the controller function
             try:
@@ -947,7 +990,100 @@ class MonitoringDeployment:
                 )
         return function_summaries_list, base_period
 
-    def _get_function_summary_applications(
+    # async def _enrich_with_stream_stats(self, function_name: str, stream_path: str, container_name: str) -> dict:
+    #     """
+    #     Enrich the function with stream stats.
+    #     :param function_name: The name of the function to enrich.
+    #     :return: A dictionary with the stream stats.
+    #     """
+    #     shard_lags = {}
+    #     print("[EYAL]: getting shard lags for func: ", function_name)
+    #     print("[EYAL]: tsdb connector type: ", self._tsdb_connector.type)
+    #     print("[EYAL]: mm_constants.TSDBTarget.V3IO_TSDB: ", mm_constants.TSDBTarget.V3IO_TSDB)
+    #     print("[EYAL]: self._tsdb_connector.type == mm_constants.TSDBTarget.V3IO_TSDB: ", self._tsdb_connector.type == mm_constants.TSDBTarget.V3IO_TSDB)
+    #     if type(self._stream_profile) == mlrun.datastore.datastore_profile.DatastoreProfileV3io:
+    #         print("[EYAL]: getting shard lags for function: ", function_name)
+    #         async with framework.utils.clients.async_nuclio.Client(self.auth_info) as client:
+    #             shard_lags = await client.get_v3io_shard_lags(project_name=self.project, function_name=function_name,
+    #                                                           stream_path=stream_path,
+    #                                                           container_name=container_name)
+    #             print("[EYAL]: shard lags of function:", shard_lags)
+    #                 # if not shard_lags:
+    #                 #     print("[EYAL]: shard lags of writer didnt work with pipelines:", stream_path)
+    #                 #     shard_lags = await client.get_v3io_shard_lags(project_name=self.project,
+    #                 #                                                   function_name=function_name,
+    #                 #                                                   container_name=container_name)
+    #                 #     print("[EYAL]: shard lags of writer without stream path:", shard_lags)
+    #
+    #     return shard_lags
+
+
+    async def _enrich_with_stream_stats(self,
+                                        function_summaries: typing.Optional[list[mlrun.common.schemas.model_monitoring.FunctionSummary]],
+                                        agg_stats: bool = True):
+        """
+        Enrich the function with stream stats.
+        :param function_summaries: List of FunctionSummary objects to enrich with stream stats.
+        :param agg_stats: If True, aggregate the stream stats by function name.
+        """
+
+        if type(self._stream_profile) == mlrun.datastore.datastore_profile.DatastoreProfileV3io:
+            async with framework.utils.clients.async_nuclio.Client(self.auth_info) as client:
+                for function in function_summaries:
+                    print("[EYAL]: getting stream path for function: ", function.name)
+                    stream_path = mlrun.model_monitoring.get_stream_path(
+                        project=self.project,
+                        function_name=function.name,
+                        secret_provider=self._secret_provider,
+                        profile=self.__stream_profile,
+                    )
+
+                    print("[EYAL]: stream path:", stream_path)
+
+                    _, container, stream_path = (
+                        mlrun.common.model_monitoring.helpers.parse_model_endpoint_store_prefix(
+                            stream_path
+                        )
+                    )
+
+                    print("[EYAL]: stream path after parsing:", stream_path)
+
+
+
+                    stream_stats = await client.get_v3io_shard_lags(project_name=self.project, function_name=function.name,
+                                                                  stream_path=stream_path,
+                                                                  container_name=container,)
+                    print("[EYAL]: stream stats of function:", stream_stats)
+                    stream_stats = stream_stats.get(stream_path, {}).get("serving", {})
+                    if stream_stats and agg_stats:
+                        lag = 0
+                        committed = 0
+                        for shard, stats in stream_stats.items():
+                            lag += stats.get("lag", 0)
+                            committed += stats.get("committed", 0)
+                        stream_stats = {
+                            "lag": lag,
+                            "committed": committed,
+                        }
+                    else:
+                        # remove "current" key from the stream stats shards
+                        for _, stats in stream_stats.items():
+                            stats.pop('current')
+
+                    print("[EYAL]: going to enrich function with stream stats:", stream_stats)
+                    function.stats["stream_stats"] = stream_stats
+                    # if not shard_lags:
+                    #     print("[EYAL]: shard lags of writer didnt work with pipelines:", stream_path)
+                    #     shard_lags = await client.get_v3io_shard_lags(project_name=self.project,
+                    #                                                   function_name=function_name,
+                    #                                                   container_name=container_name)
+                    #     print("[EYAL]: shard lags of writer without stream path:", shard_lags)
+
+
+
+
+
+    async def _get_function_summary_applications(
         self,
         base_period: typing.Optional[float] = None,
         start: typing.Optional[datetime] = None,
