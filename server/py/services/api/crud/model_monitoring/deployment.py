@@ -844,14 +844,16 @@ class MonitoringDeployment:
         )
 
         # Enrich response with monitoring applications
-        application_function_summaries_list = await self._get_function_summary_applications(
-            base_period=base_period,
-            start=start,
-            end=end,
-            names=names,
-            labels=labels,
-            include_stats=include_stats,
-            include_processed_model_endpoints=include_processed_model_endpoints,
+        application_function_summaries_list = (
+            await self._get_function_summary_applications(
+                base_period=base_period,
+                start=start,
+                end=end,
+                names=names,
+                labels=labels,
+                include_stats=include_stats,
+                include_processed_model_endpoints=include_processed_model_endpoints,
+            )
         )
 
         function_summaries = infra_function_summaries_list + application_function_summaries_list
@@ -994,7 +996,8 @@ class MonitoringDeployment:
         return function_summaries_list, base_period
 
     async def _enrich_with_stream_stats(self,
-                                        function_summaries: typing.Optional[list[mlrun.common.schemas.model_monitoring.FunctionSummary]],
+                                        function_summaries: typing.Optional[
+                                            list[mlrun.common.schemas.model_monitoring.FunctionSummary]],
                                         agg_stats: bool = True):
         """
         Enrich the function with stream stats.
@@ -1020,10 +1023,10 @@ class MonitoringDeployment:
                         )
                     )
 
-
-                    stream_stats = await client.get_v3io_shard_lags(project_name=self.project, function_name=function.name,
-                                                                  stream_path=stream_path,
-                                                                  container_name=container,)
+                    stream_stats = await client.get_v3io_shard_lags(project_name=self.project,
+                                                                    function_name=function.name,
+                                                                    stream_path=stream_path,
+                                                                    container_name=container, )
                     print("[EYAL]: stream stats of function:", stream_stats)
                     stream_stats = stream_stats.get(f"{container}/{stream_path}", {}).get("serving", {})
                     if stream_stats and agg_stats:
@@ -1043,10 +1046,6 @@ class MonitoringDeployment:
 
                     print("[EYAL]: going to enrich function with stream stats:", stream_stats)
                     function.stats["stream_stats"] = stream_stats
-
-
-
-
 
 
     async def _get_function_summary_applications(
@@ -1094,6 +1093,7 @@ class MonitoringDeployment:
                     mm_constants.ResultStatusApp.potential_detection.value,
                 ],
             )
+
         if include_processed_model_endpoints:
             # enrich func stats with processed model endpoints
             processed_model_endpoints_dict = await run_in_threadpool(

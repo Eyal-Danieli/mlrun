@@ -745,10 +745,8 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
         except mlrun.errors.MLRunNotFoundError:
             # Evidently app was not deployed
             pass
-        print("[EYAL]: HEREHERHREHER v1")
-        if _DefaultDataDriftAppData in self.apps_data:
-            print("[EYAL]: HEREHERHREHER v2")
 
+        if _DefaultDataDriftAppData in self.apps_data:
             # test a specific function summary
             hist_function_summary = self.project.get_monitoring_function_summary(
                 name=HistogramDataDriftApplication.NAME, include_latest_metrics=True
