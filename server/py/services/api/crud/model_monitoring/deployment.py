@@ -937,40 +937,9 @@ class MonitoringDeployment:
                 logger.info("No model monitoring infrastructure functions found")
 
             for function in infra_mm_functions:
-                print("[EYAL]: getting a nuclio client")
-
-                print("[EYAL]: get stream path")
-
-                # stream_path = mlrun.model_monitoring.get_stream_path(
-                #     project=self.project,
-                #     function_name=function["metadata"]["name"],
-                #     secret_provider=self._secret_provider,
-                #     profile=self.__stream_profile,
-                # )
-                #
-                # print("[EYAL]: stream path:", stream_path)
-                #
-                #
-                # _, container, stream_path = (
-                #     mlrun.common.model_monitoring.helpers.parse_model_endpoint_store_prefix(
-                #         stream_path
-                #     )
-                # )
-                # get shard lags
-                # async with framework.utils.clients.async_nuclio.Client(self.auth_info) as client:
-                #     shard_lags = await client.get_v3io_shard_lags(project_name=self.project, function_name=function["metadata"]["name"])
-
-                # Enrich with shard lags
-                # shard_lags = await self._enrich_with_stream_stats(function_name=function["metadata"]["name"],
-                #                                                   stream_path=stream_path,
-                #                                                   container_name=container,)
-
-
                 function_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_function_dict(
                     function, func_type="infra",
                 )
-
-
                 function_summaries_list.append(function_summary)
                 if (
                     function["metadata"]["name"]
@@ -1027,7 +996,7 @@ class MonitoringDeployment:
                                                                     function_name=function.name,
                                                                     stream_path=stream_path,
                                                                     container_name=container, )
-                    print("[EYAL]: stream stats of function:", stream_stats)
+
                     stream_stats = stream_stats.get(f"{container}/{stream_path}", {}).get("serving", {})
                     if stream_stats and agg_stats:
                         lag = 0

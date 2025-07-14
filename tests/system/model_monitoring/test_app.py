@@ -318,7 +318,7 @@ class _V3IORecordsChecker:
 @TestMLRunSystemModelMonitoring.skip_test_if_env_not_configured
 @pytest.mark.enterprise
 class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
-    project_name = "test-app-flow-v18"
+    project_name = "test-app-flow-v21"
     # Set image to "<repo>/mlrun:<tag>" for local testing
     image = "artifactory.iguazeng.com:10557/eyald/mlrun:1.11.0"
     # image: typing.Optional[str] = None
