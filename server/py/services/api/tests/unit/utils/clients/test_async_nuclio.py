@@ -183,13 +183,19 @@ async def test_nuclio_get_v3io_shard_lags(
 
     mock_aioresponse.post(
         request_url,
-        payload=payload,
+        payload={'some-stream':
+                             {'serving': {'0': {'committed': 535, 'current': 535, 'lag': 0},
+                                          '1': {'committed': 507, 'current': 507, 'lag': 0},
+                                          '2': {'committed': 369, 'current': 369, 'lag': 0},
+                                          '3': {'committed': 591, 'current': 591, 'lag': 0}}}},
         status=http.HTTPStatus.OK,
     )
     await nuclio_client.get_v3io_shard_lags(
+        project_name="default",
         consumer_group=payload["consumerGroup"],
         container_name=payload["containerName"],
         stream_path=payload["streamPath"],
     )
+
 
 

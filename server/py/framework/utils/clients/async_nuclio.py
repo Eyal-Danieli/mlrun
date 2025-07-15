@@ -162,7 +162,7 @@ class Client:
                                   function_name: Optional[str] = None,
                                   consumer_group: str = "serving",
                                   container_name: str = "projects",
-                                  ):
+                                  ) -> dict:
         """
         Get the v3io shard lags from the Nuclio API.
         This is used to monitor the lag of the v3io shards in the Nuclio functions.
@@ -187,7 +187,7 @@ class Client:
             "containerName": container_name,
             "streamPath": stream_path,
         }
-        response = await self._send_request_to_api(
+        return await self._send_request_to_api(
             method="POST",
             path="/api/v3io_streams/get_shard_lags",
             error_message="Failed to get v3io shard lags",
@@ -195,8 +195,6 @@ class Client:
             headers=headers,
         )
 
-        print("[EYAL]: v3io shard lags response:", response)
-        return response
 
     def _set_iguazio_labels(self, nuclio_object, project_name):
         nuclio_object.metadata.labels[
