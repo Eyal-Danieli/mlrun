@@ -157,12 +157,14 @@ class Client:
             json={"metadata": {"name": name}},
         )
 
-    async def get_v3io_shard_lags(self, project_name: str,
-                                  stream_path: Optional[str] = None,
-                                  function_name: Optional[str] = None,
-                                  consumer_group: str = "serving",
-                                  container_name: str = "projects",
-                                  ) -> dict:
+    async def get_v3io_shard_lags(
+        self,
+        project_name: str,
+        stream_path: Optional[str] = None,
+        function_name: Optional[str] = None,
+        consumer_group: str = "serving",
+        container_name: str = "projects",
+    ) -> dict:
         """
         Get the v3io shard lags from the Nuclio API.
         This is used to monitor the lag of the v3io shards in the Nuclio functions.
@@ -179,8 +181,6 @@ class Client:
                 )
             stream_path = f"/{project_name}/model-endpoints/stream-{function_name}-v1"
 
-
-
         print("[EYAL]: Getting v3io shard lags from Nuclio API: ", stream_path)
         payload = {
             "consumerGroup": consumer_group,
@@ -194,7 +194,6 @@ class Client:
             json=payload,
             headers=headers,
         )
-
 
     def _set_iguazio_labels(self, nuclio_object, project_name):
         nuclio_object.metadata.labels[

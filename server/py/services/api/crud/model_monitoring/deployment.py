@@ -837,11 +837,11 @@ class MonitoringDeployment:
                                                   monitoring function.
         """
 
-
         # Enrich response with infra functions
-        infra_function_summaries_list, base_period = await self._get_function_summary_infra(
-            enrich_with_infra=include_infra
-        )
+        (
+            infra_function_summaries_list,
+            base_period,
+        ) = await self._get_function_summary_infra(enrich_with_infra=include_infra)
 
         # Enrich response with monitoring applications
         application_function_summaries_list = (
@@ -856,10 +856,14 @@ class MonitoringDeployment:
             )
         )
 
-        function_summaries = infra_function_summaries_list + application_function_summaries_list
+        function_summaries = (
+            infra_function_summaries_list + application_function_summaries_list
+        )
 
         if include_stats:
-            await self._enrich_with_stream_stats(function_summaries=function_summaries, agg_stats=agg_stream_stats)
+            await self._enrich_with_stream_stats(
+                function_summaries=function_summaries, agg_stats=agg_stream_stats
+            )
 
         return function_summaries
 
@@ -938,7 +942,8 @@ class MonitoringDeployment:
 
             for function in infra_mm_functions:
                 function_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_function_dict(
-                    function, func_type="infra",
+                    function,
+                    func_type="infra",
                 )
                 function_summaries_list.append(function_summary)
                 if (
@@ -964,18 +969,26 @@ class MonitoringDeployment:
                 )
         return function_summaries_list, base_period
 
-    async def _enrich_with_stream_stats(self,
-                                        function_summaries: typing.Optional[
-                                            list[mlrun.common.schemas.model_monitoring.FunctionSummary]],
-                                        agg_stats: bool = True):
+    async def _enrich_with_stream_stats(
+        self,
+        function_summaries: typing.Optional[
+            list[mlrun.common.schemas.model_monitoring.FunctionSummary]
+        ],
+        agg_stats: bool = True,
+    ):
         """
         Enrich the function with stream stats.
         :param function_summaries: List of FunctionSummary objects to enrich with stream stats.
         :param agg_stats: If True, aggregate the stream stats by function name.
         """
 
-        if type(self._stream_profile) == mlrun.datastore.datastore_profile.DatastoreProfileV3io:
-            async with framework.utils.clients.async_nuclio.Client(self.auth_info) as client:
+        if (
+            type(self._stream_profile)
+            == mlrun.datastore.datastore_profile.DatastoreProfileV3io
+        ):
+            async with framework.utils.clients.async_nuclio.Client(
+                self.auth_info
+            ) as client:
                 for function in function_summaries:
                     stream_path = mlrun.model_monitoring.get_stream_path(
                         project=self.project,
@@ -992,12 +1005,16 @@ class MonitoringDeployment:
                         )
                     )
 
-                    stream_stats = await client.get_v3io_shard_lags(project_name=self.project,
-                                                                    function_name=function.name,
-                                                                    stream_path=stream_path,
-                                                                    container_name=container, )
+                    stream_stats = await client.get_v3io_shard_lags(
+                        project_name=self.project,
+                        function_name=function.name,
+                        stream_path=stream_path,
+                        container_name=container,
+                    )
 
-                    stream_stats = stream_stats.get(f"{container}/{stream_path}", {}).get("serving", {})
+                    stream_stats = stream_stats.get(
+                        f"{container}/{stream_path}", {}
+                    ).get("serving", {})
                     if stream_stats and agg_stats:
                         lag = 0
                         committed = 0
@@ -1011,11 +1028,13 @@ class MonitoringDeployment:
                     else:
                         # remove "current" key from the stream stats shards
                         for _, stats in stream_stats.items():
-                            stats.pop('current', None)
+                            stats.pop("current", None)
 
-                    print("[EYAL]: going to enrich function with stream stats:", stream_stats)
+                    print(
+                        "[EYAL]: going to enrich function with stream stats:",
+                        stream_stats,
+                    )
                     function.stats["stream_stats"] = stream_stats
-
 
     async def _get_function_summary_applications(
         self,

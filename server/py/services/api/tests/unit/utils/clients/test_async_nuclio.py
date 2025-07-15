@@ -168,6 +168,7 @@ async def test_nuclio_delete_function(
     )
     await nuclio_client.delete_function("test-basic", "default")
 
+
 @pytest.mark.asyncio
 async def test_nuclio_get_v3io_shard_lags(
     api_url,
@@ -183,11 +184,16 @@ async def test_nuclio_get_v3io_shard_lags(
 
     mock_aioresponse.post(
         request_url,
-        payload={'some-stream':
-                             {'serving': {'0': {'committed': 535, 'current': 535, 'lag': 0},
-                                          '1': {'committed': 507, 'current': 507, 'lag': 0},
-                                          '2': {'committed': 369, 'current': 369, 'lag': 0},
-                                          '3': {'committed': 591, 'current': 591, 'lag': 0}}}},
+        payload={
+            "some-stream": {
+                "serving": {
+                    "0": {"committed": 535, "current": 535, "lag": 0},
+                    "1": {"committed": 507, "current": 507, "lag": 0},
+                    "2": {"committed": 369, "current": 369, "lag": 0},
+                    "3": {"committed": 591, "current": 591, "lag": 0},
+                }
+            }
+        },
         status=http.HTTPStatus.OK,
     )
     await nuclio_client.get_v3io_shard_lags(
@@ -196,6 +202,3 @@ async def test_nuclio_get_v3io_shard_lags(
         container_name=payload["containerName"],
         stream_path=payload["streamPath"],
     )
-
-
-

@@ -747,7 +747,10 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
             assert evidently_stats["detected"] == 0
 
             # check the stream stats if stream is v3io
-            if type(self.mm_stream_profile) == mlrun.datastore.datastore_profile.DatastoreProfileV3io:
+            if (
+                type(self.mm_stream_profile)
+                == mlrun.datastore.datastore_profile.DatastoreProfileV3io
+            ):
                 assert evidently_stats["stream_stats"]
                 assert evidently_stats["stream_stats"]["committed"] == 1
                 assert evidently_stats["stream_stats"]["lag"] == 0
@@ -794,9 +797,19 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
 
             assert hist_function_summary.stats["stream_stats"]
             assert len(hist_function_summary.stats["stream_stats"]) == 1
-            hist_shard_number = list(hist_function_summary.stats["stream_stats"].keys())[0]
-            assert hist_function_summary.stats["stream_stats"][hist_shard_number]["committed"] == 1
-            assert hist_function_summary.stats["stream_stats"][hist_shard_number]["lag"] == 0
+            hist_shard_number = list(
+                hist_function_summary.stats["stream_stats"].keys()
+            )[0]
+            assert (
+                hist_function_summary.stats["stream_stats"][hist_shard_number][
+                    "committed"
+                ]
+                == 1
+            )
+            assert (
+                hist_function_summary.stats["stream_stats"][hist_shard_number]["lag"]
+                == 0
+            )
             print("[EYAL]: hist_shard_number", hist_shard_number)
 
     @pytest.mark.parametrize("with_training_set", [True, False])
