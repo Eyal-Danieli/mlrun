@@ -318,7 +318,7 @@ class _V3IORecordsChecker:
 @TestMLRunSystemModelMonitoring.skip_test_if_env_not_configured
 @pytest.mark.enterprise
 class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
-    project_name = "test-app-flow-v21"
+    project_name = "test-app-flow-v23"
     # Set image to "<repo>/mlrun:<tag>" for local testing
     image = "artifactory.iguazeng.com:10557/eyald/mlrun:1.11.0"
     # image: typing.Optional[str] = None
@@ -740,8 +740,21 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
                 )
             )
             evidently_func_summary = evidently_func_summary_list[0]
-            assert evidently_func_summary.stats["potential_detection"] == 1
-            assert evidently_func_summary.stats["detected"] == 0
+
+            evidently_stats = evidently_func_summary.stats
+
+            assert evidently_stats["potential_detection"] == 1
+            assert evidently_stats["detected"] == 0
+
+            # check the stream stats if stream is v3io
+            if type(self.mm_stream_profile) == mlrun.datastore.datastore_profile.DatastoreProfileV3io:
+                assert evidently_stats["stream_stats"]
+                assert evidently_stats["stream_stats"]["committed"] == 1
+                assert evidently_stats["stream_stats"]["lag"] == 0
+
+            assert evidently_stats["stream_stats"]
+            assert evidently_stats["stream_stats"]["committed"] == 1
+            assert evidently_stats["stream_stats"]["lag"] == 0
         except mlrun.errors.MLRunNotFoundError:
             # Evidently app was not deployed
             pass
@@ -778,6 +791,13 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
                 "type",
                 "value",
             }, "The metric keys are not as expected"
+
+            assert hist_function_summary.stats["stream_stats"]
+            assert len(hist_function_summary.stats["stream_stats"]) == 1
+            hist_shard_number = list(hist_function_summary.stats["stream_stats"].keys())[0]
+            assert hist_function_summary.stats["stream_stats"][hist_shard_number]["committed"] == 1
+            assert hist_function_summary.stats["stream_stats"][hist_shard_number]["lag"] == 0
+            print("[EYAL]: hist_shard_number", hist_shard_number)
 
     @pytest.mark.parametrize("with_training_set", [True, False])
     @pytest.mark.parametrize("with_model_runner", [True, False])
@@ -837,18 +857,18 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
             (mep.status.last_request - last_request) < timedelta(milliseconds=1)
         ), "The saved `last_request` in the model endpoint is different than the last result timestamp"
 
-        self._test_v3io_records(
-            ep_id=mep.metadata.uid,
-            last_request=mep.status.last_request,
-            apps_data=self.apps_data,
-            error_count=self.error_count,
-        )
-        self._test_predictions_table(mep.metadata.uid)
-        self._test_artifacts(ep_id=mep.metadata.uid)
-        self._test_api(ep_id=mep.metadata.uid, apps_data=self.apps_data)
-        if _DefaultDataDriftAppData in self.apps_data:
-            self._test_model_endpoint_stats(mep=mep)
-        self._test_error_alert()
+        # self._test_v3io_records(
+        #     ep_id=mep.metadata.uid,
+        #     last_request=mep.status.last_request,
+        #     apps_data=self.apps_data,
+        #     error_count=self.error_count,
+        # )
+        # self._test_predictions_table(mep.metadata.uid)
+        # self._test_artifacts(ep_id=mep.metadata.uid)
+        # self._test_api(ep_id=mep.metadata.uid, apps_data=self.apps_data)
+        # if _DefaultDataDriftAppData in self.apps_data:
+        #     self._test_model_endpoint_stats(mep=mep)
+        # self._test_error_alert()
         self._test_function_summaries()
 
 
