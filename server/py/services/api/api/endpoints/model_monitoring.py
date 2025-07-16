@@ -60,16 +60,17 @@ async def _verify_authorization(
     action: str = mlrun.common.schemas.AuthorizationAction.store,
 ) -> None:
     """Verify project authorization"""
-    if (
-        semver.Version.parse(client_version)
-        < semver.Version.parse(MINIMUM_CLIENT_VERSION_FOR_MM)
-        and "unstable" not in client_version
-    ):
-        framework.api.utils.log_and_raise(
-            http.HTTPStatus.BAD_REQUEST.value,
-            reason=f"Model monitoring is supported from client version {MINIMUM_CLIENT_VERSION_FOR_MM}. "
-            f"Please upgrade your client accordingly.",
-        )
+    # print("[EYAL]: client_version", client_version)
+    # if (
+    #     semver.Version.parse(client_version)
+    #     < semver.Version.parse(MINIMUM_CLIENT_VERSION_FOR_MM)
+    #     and "unstable" not in client_version
+    # ):
+    #     framework.api.utils.log_and_raise(
+    #         http.HTTPStatus.BAD_REQUEST.value,
+    #         reason=f"Model monitoring is supported from client version {MINIMUM_CLIENT_VERSION_FOR_MM}. "
+    #         f"Please upgrade your client accordingly.",
+    #     )
     await framework.utils.auth.verifier.AuthVerifier().query_project_resource_permissions(
         resource_type=mlrun.common.schemas.AuthorizationResourceTypes.function,
         project_name=project,
