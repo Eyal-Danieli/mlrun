@@ -18,7 +18,6 @@ from datetime import datetime, timedelta
 from typing import Annotated, Optional
 
 import fastapi
-import semver
 from fastapi import APIRouter, Depends, Header, Path, Query
 from sqlalchemy.orm import Session
 
@@ -27,7 +26,6 @@ import mlrun.common.schemas
 import framework.api.utils
 import framework.utils.auth.verifier
 from framework.api import deps
-from framework.constants import MINIMUM_CLIENT_VERSION_FOR_MM
 from services.api.api.endpoints.nuclio import process_model_monitoring_secret
 from services.api.crud.model_monitoring.deployment import MonitoringDeployment
 
