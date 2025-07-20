@@ -44,6 +44,7 @@ from .constants import (
     VersionedModel,
     WriterEvent,
     WriterEventKind,
+EndpointMode,
 )
 from .functions import FunctionsType, FunctionSummary
 from .grafana import (
@@ -68,4 +69,5 @@ from .model_endpoints import (
     ModelEndpointMonitoringResultValues,
     ModelEndpointSpec,
     ModelEndpointStatus,
+
 )

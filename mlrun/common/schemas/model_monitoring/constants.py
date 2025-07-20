@@ -320,6 +320,18 @@ class EndpointType(IntEnum):
     def top_level_list(cls):
         return [cls.NODE_EP, cls.ROUTER, cls.BATCH_EP]
 
+    @classmethod
+    def real_time_list(cls):
+        return [cls.NODE_EP, cls.ROUTER, cls.LEAF_EP]
+
+    @classmethod
+    def batch_list(cls):
+        return [cls.BATCH_EP]
+
+class EndpointMode(StrEnum):
+    REAL_TIME = "real_time"
+    BATCH = "batch"
+
 
 class MonitoringFunctionNames(MonitoringStrEnum):
     STREAM = "model-monitoring-stream"

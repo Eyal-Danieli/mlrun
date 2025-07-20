@@ -135,6 +135,7 @@ from .model_monitoring import (
     DriftStatus,
     EndpointType,
     EndpointUID,
+EndpointMode,
     EventFieldType,
     EventKeyMetrics,
     Features,
