@@ -29,16 +29,16 @@ import pandas as pd
 
 import mlrun
 import mlrun.common.schemas.model_monitoring.constants as mm_constants
-import mlrun.feature_store as fstore
+
 import mlrun.model_monitoring
 import mlrun.model_monitoring.db._schedules as schedules
 import mlrun.model_monitoring.helpers
 import mlrun.platforms.iguazio
-from mlrun.common.schemas import EndpointType
+
 from mlrun.common.schemas.model_monitoring.constants import (
     ControllerEvent,
     ControllerEventEndpointPolicy,
-    ControllerEventKind,
+
 )
 from mlrun.errors import err_to_str
 from mlrun.model_monitoring.helpers import batch_dict2timedelta
@@ -297,8 +297,6 @@ class MonitoringApplicationController:
     Note that the MonitoringApplicationController object requires access keys along with valid project configurations.
     """
 
-    _MAX_FEATURE_SET_PER_WORKER = 1000
-
     def __init__(self) -> None:
         """Initialize Monitoring Application Controller"""
         self.project = cast(str, mlrun.mlconf.active_project)
@@ -332,9 +330,6 @@ class MonitoringApplicationController:
                 mlrun.platforms.iguazio.KafkaOutputStream,
             ],
         ] = {}
-        self.feature_sets: OrderedDict[str, mlrun.feature_store.FeatureSet] = (
-            collections.OrderedDict()
-        )
         self.tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
             project=self.project
         )
@@ -471,7 +466,6 @@ class MonitoringApplicationController:
                 last_request=endpoint.status.last_request,
                 first_request=endpoint.status.first_request,
                 endpoint_type=endpoint.metadata.endpoint_type,
-                feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
             )
         return False
 
@@ -528,19 +522,9 @@ class MonitoringApplicationController:
 
             project_name = event[ControllerEvent.PROJECT]
             endpoint_id = event[ControllerEvent.ENDPOINT_ID]
-            endpoint_name = event[ControllerEvent.ENDPOINT_NAME]
-            if event[ControllerEvent.KIND] == mm_constants.ControllerEventKind.NOP_EVENT:
-                applications_names = event[ControllerEvent.ENDPOINT_POLICY][
-                    ControllerEventEndpointPolicy.MONITORING_APPLICATIONS
-                ]
-                last_stream_timestamp = datetime.datetime.fromisoformat(
-                    event[ControllerEvent.TIMESTAMP]
-                )
-                first_request = datetime.datetime.fromisoformat(
-                    event[ControllerEvent.FIRST_REQUEST]
-                )
-                endpoint_mode = mm_constants.EndpointMode.REAL_TIME
-            else:
+
+            if event[ControllerEvent.KIND] == mm_constants.ControllerEventKind.BATCH_EVENT:
+
                 print("[EYAL]: it's a batch ep, list app names manually")
                 monitoring_functions = self.project_obj.list_model_monitoring_functions()
                 if monitoring_functions:
@@ -552,17 +536,58 @@ class MonitoringApplicationController:
                     )
                     first_request = datetime.datetime.fromisoformat(event[ControllerEvent.BATCH_START_TIME])
                     endpoint_mode = mm_constants.EndpointMode.BATCH
+                    model_endpoint = self.project_obj.list_model_endpoints(
+                        uids=[endpoint_id],
+                        latest_only=True,
+                    ).endpoints
+
+                    if not model_endpoint:
+                        logger.error(
+                            "Batch model endpoint not found",
+                            endpoint_id=endpoint_id,
+                            project=project_name,
+                        )
+                        return
+
+                    endpoint_name = model_endpoint[0].metadata.name
+                    endpoint_updated = model_endpoint[0].metadata.updated.isoformat()
+
+                    print("[EYAL]: batch ep found, endpoint name is ", endpoint_name)
+                    print("[EYAL]: batch ep found, endpoint updated is ", endpoint_updated)
+
+
+                    # get endpoint_updated and endpoint_name
+                    # endpoint = self.project_obj.get_model_endpoint(
+
                 else:
                     logger.info("No monitoring functions found", project=self.project)
                     return
                 print("[EYAL]: it's a batch ep, list app names manually, apps: ", applications_names)
 
-            # not_batch_endpoint = (
-            #     event[ControllerEvent.ENDPOINT_TYPE] != EndpointType.BATCH_EP
-            # )
+
+            else:
+                endpoint_name = event[ControllerEvent.ENDPOINT_NAME]
+                applications_names = event[ControllerEvent.ENDPOINT_POLICY][
+                    ControllerEventEndpointPolicy.MONITORING_APPLICATIONS
+                ]
+                last_stream_timestamp = datetime.datetime.fromisoformat(
+                    event[ControllerEvent.TIMESTAMP]
+                )
+                first_request = datetime.datetime.fromisoformat(
+                    event[ControllerEvent.FIRST_REQUEST]
+                )
+
+                endpoint_updated = event[ControllerEvent.ENDPOINT_POLICY][
+                    ControllerEventEndpointPolicy.ENDPOINT_UPDATED
+                ]
+
+
+                endpoint_mode = mm_constants.EndpointMode.REAL_TIME
+                print("[EYAL]: it's a batch ep, list app names manually, apps: ", applications_names)
+
 
             logger.info(
-                "Starting analyzing for", timestamp=event[ControllerEvent.TIMESTAMP]
+                "Starting analyzing for", timestamp=last_stream_timestamp
             )
 
 
@@ -616,50 +641,44 @@ class MonitoringApplicationController:
                                 project=project_name,
                                 applications_names=[application],
                                 model_monitoring_access_key=self.model_monitoring_access_key,
-                                endpoint_updated=event[ControllerEvent.ENDPOINT_POLICY][
-                                    ControllerEventEndpointPolicy.ENDPOINT_UPDATED
-                                ],
+                                endpoint_updated=endpoint_updated,
                             )
-                base_period = event[ControllerEvent.ENDPOINT_POLICY][
-                    ControllerEventEndpointPolicy.BASE_PERIOD
-                ]
-                current_time = mlrun.utils.datetime_now()
-                if (
-                        event[ControllerEvent.KIND] == mm_constants.ControllerEventKind.REGULAR_EVENT
-                        and
-                    self._should_send_nop_event(
+
+                if event[ControllerEvent.KIND] == mm_constants.ControllerEventKind.REGULAR_EVENT:
+                    base_period = event[ControllerEvent.ENDPOINT_POLICY][
+                        ControllerEventEndpointPolicy.BASE_PERIOD
+                    ]
+                    current_time = mlrun.utils.datetime_now()
+                    if self._should_send_nop_event(
                         base_period,
                         batch_window_generator.get_min_last_analyzed(),
                         current_time,
-                    )
-                ):
-                    event = {
-                        ControllerEvent.KIND: mm_constants.ControllerEventKind.NOP_EVENT,
-                        ControllerEvent.PROJECT: project_name,
-                        ControllerEvent.ENDPOINT_ID: endpoint_id,
-                        ControllerEvent.ENDPOINT_NAME: endpoint_name,
-                        ControllerEvent.TIMESTAMP: current_time.isoformat(
-                            timespec="microseconds"
-                        ),
-                        ControllerEvent.ENDPOINT_POLICY: event[
-                            ControllerEvent.ENDPOINT_POLICY
-                        ],
-                        ControllerEvent.ENDPOINT_TYPE: event[
-                            ControllerEvent.ENDPOINT_TYPE
-                        ],
-                        ControllerEvent.FEATURE_SET_URI: event[
-                            ControllerEvent.FEATURE_SET_URI
-                        ],
-                        ControllerEvent.FIRST_REQUEST: event[
-                            ControllerEvent.FIRST_REQUEST
-                        ],
-                    }
-                    self._push_to_main_stream(
-                        event=event,
-                        endpoint_id=endpoint_id,
-                    )
+                    ):
+                        event = {
+                            ControllerEvent.KIND: mm_constants.ControllerEventKind.NOP_EVENT,
+                            ControllerEvent.PROJECT: project_name,
+                            ControllerEvent.ENDPOINT_ID: endpoint_id,
+                            ControllerEvent.ENDPOINT_NAME: endpoint_name,
+                            ControllerEvent.TIMESTAMP: current_time.isoformat(
+                                timespec="microseconds"
+                            ),
+
+                            ControllerEvent.ENDPOINT_POLICY: event[
+                                ControllerEvent.ENDPOINT_POLICY
+                            ],
+                            ControllerEvent.ENDPOINT_TYPE: event[
+                                ControllerEvent.ENDPOINT_TYPE
+                            ],
+                            ControllerEvent.FIRST_REQUEST: event[
+                                ControllerEvent.FIRST_REQUEST
+                            ],
+                        }
+                        self._push_to_main_stream(
+                            event=event,
+                            endpoint_id=endpoint_id,
+                        )
             logger.info(
-                "Finish analyze for", timestamp=event[ControllerEvent.TIMESTAMP]
+                "Finish analyze for", timestamp=last_stream_timestamp,
             )
 
         except Exception:
@@ -836,7 +855,6 @@ class MonitoringApplicationController:
                     sep=" ", timespec="microseconds"
                 ),
                 endpoint_type=endpoint.metadata.endpoint_type,
-                feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
                 endpoint_policy=json.dumps(policy),
             )
             policy[ControllerEventEndpointPolicy.ENDPOINT_UPDATED] = (
@@ -854,7 +872,6 @@ class MonitoringApplicationController:
                     sep=" ", timespec="microseconds"
                 ),
                 endpoint_type=endpoint.metadata.endpoint_type.value,
-                feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
                 endpoint_policy=policy,
             )
 
@@ -867,7 +884,6 @@ class MonitoringApplicationController:
         timestamp: str,
         first_request: str,
         endpoint_type: int,
-        feature_set_uri: str,
         endpoint_policy: dict[str, Any],
     ) -> None:
         """
@@ -880,7 +896,7 @@ class MonitoringApplicationController:
         :param endpoint_id: endpoint id string
         :param endpoint_name: the endpoint name string
         :param endpoint_type: Enum of the endpoint type
-        :param feature_set_uri: the feature set uri string
+
         """
         event = {
             ControllerEvent.KIND.value: kind,
@@ -890,7 +906,6 @@ class MonitoringApplicationController:
             ControllerEvent.TIMESTAMP.value: timestamp,
             ControllerEvent.FIRST_REQUEST.value: first_request,
             ControllerEvent.ENDPOINT_TYPE.value: endpoint_type,
-            ControllerEvent.FEATURE_SET_URI.value: feature_set_uri,
             ControllerEvent.ENDPOINT_POLICY.value: endpoint_policy,
         }
         logger.info(
@@ -898,6 +913,7 @@ class MonitoringApplicationController:
             event=event,
             endpoint_id=endpoint_id,
             controller_stream_type=str(type(self.controller_stream)),
+            controller_stream_name=self.controller_stream,
         )
         self.controller_stream.push([event], partition_key=endpoint_id)
 
