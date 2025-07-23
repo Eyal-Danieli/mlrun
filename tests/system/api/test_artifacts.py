@@ -26,7 +26,7 @@ function_path = str(pathlib.Path(__file__).parent / "assets" / "function.py")
 
 @TestMLRunSystem.skip_test_if_env_not_configured
 class TestAPIArtifacts(TestMLRunSystem):
-    project_name = "test-project-artifacts-87"
+    project_name = "test-project-artifacts"
 
     @pytest.mark.enterprise
     def test_import_artifact(self):
@@ -98,6 +98,7 @@ class TestAPIArtifacts(TestMLRunSystem):
             model_dir=str((pathlib.Path(__file__).parent / "assets").absolute()),
             model_file="model.pkl",
             upload=True,
+            tag="v1",
         )
         llm_key = "llm-prompt"
         for i in range(3):
@@ -118,5 +119,6 @@ class TestAPIArtifacts(TestMLRunSystem):
         assert llm_0.read_prompt() == [{"role": "user", "content": "{question}"}]
 
         model_ref = llm_0.model_artifact
+        assert ":v1" in llm_0.spec.parent_uri
         assert model_ref.key == model.key
         assert model_ref.spec.has_children
