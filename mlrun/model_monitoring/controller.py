@@ -523,7 +523,7 @@ class MonitoringApplicationController:
             project_name = event[ControllerEvent.PROJECT]
             endpoint_id = event[ControllerEvent.ENDPOINT_ID]
 
-            if event[ControllerEvent.KIND] == mm_constants.ControllerEventKind.BATCH_EVENT:
+            if event[ControllerEvent.KIND] == mm_constants.ControllerEventKind.BATCH_COMPLETE:
 
                 print("[EYAL]: it's a batch ep, list app names manually")
                 monitoring_functions = self.project_obj.list_model_monitoring_functions()
@@ -532,9 +532,9 @@ class MonitoringApplicationController:
                         {app.metadata.name for app in monitoring_functions}
                     )
                     last_stream_timestamp = datetime.datetime.fromisoformat(
-                        event[ControllerEvent.BATCH_END_TIME]
+                        event[ControllerEvent.LAST_TIMESTAMP]
                     )
-                    first_request = datetime.datetime.fromisoformat(event[ControllerEvent.BATCH_START_TIME])
+                    first_request = datetime.datetime.fromisoformat(event[ControllerEvent.FIRST_TIMESTAMP])
                     endpoint_mode = mm_constants.EndpointMode.BATCH
                     model_endpoint = self.project_obj.list_model_endpoints(
                         uids=[endpoint_id],
