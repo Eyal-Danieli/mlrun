@@ -215,10 +215,6 @@ class ControllerEvent(MonitoringStrEnum):
     # "base_period", and "updated_endpoint" stand for when the MEP was updated
 
 
-
-
-
-
 class ControllerEventEndpointPolicy(MonitoringStrEnum):
     BASE_PERIOD = "base_period"
     MONITORING_APPLICATIONS = "monitoring_applications"
@@ -337,6 +333,7 @@ class EndpointType(IntEnum):
     @classmethod
     def batch_list(cls):
         return [cls.BATCH_EP]
+
 
 class EndpointMode(StrEnum):
     REAL_TIME = "real_time"

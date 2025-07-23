@@ -66,8 +66,8 @@ from mlrun.common.schemas.feature_store import (
     FeatureSetDigestSpecV2,
 )
 from mlrun.common.schemas.model_monitoring import (
+    EndpointMode,
     EndpointType,
-EndpointMode,
     ModelEndpointSchema,
     ModelMonitoringAppLabel,
 )

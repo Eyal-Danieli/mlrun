@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import collections
 import concurrent.futures
 import datetime
 import json
 import os
 import traceback
-from collections import OrderedDict
 from collections.abc import Iterator
 from contextlib import AbstractContextManager
 from types import TracebackType
@@ -29,20 +27,17 @@ import pandas as pd
 
 import mlrun
 import mlrun.common.schemas.model_monitoring.constants as mm_constants
-
 import mlrun.model_monitoring
 import mlrun.model_monitoring.db._schedules as schedules
 import mlrun.model_monitoring.helpers
 import mlrun.platforms.iguazio
-
 from mlrun.common.schemas.model_monitoring.constants import (
     ControllerEvent,
     ControllerEventEndpointPolicy,
-
 )
 from mlrun.errors import err_to_str
 from mlrun.model_monitoring.helpers import batch_dict2timedelta
-from mlrun.utils import datetime_now, logger
+from mlrun.utils import logger
 
 _SECONDS_IN_DAY = int(datetime.timedelta(days=1).total_seconds())
 _SECONDS_IN_MINUTE = 60
@@ -88,11 +83,13 @@ class _BatchWindow:
 
     def _get_initial_last_analyzed(self) -> int:
         if self._endpoint_mode == mm_constants.EndpointMode.BATCH:
-            logger.info("No last analyzed time was found for this endpoint and application, as this is "
-            "probably the first time this application is running. Initializing last analyzed "
-            "to the start of the batch time",
-                        application=self._application,
-                        start_batch_time=self._first_request,)
+            logger.info(
+                "No last analyzed time was found for this endpoint and application, as this is "
+                "probably the first time this application is running. Initializing last analyzed "
+                "to the start of the batch time",
+                application=self._application,
+                start_batch_time=self._first_request,
+            )
             return self._first_request
         logger.info(
             "No last analyzed time was found for this endpoint and application, as this is "
@@ -114,9 +111,7 @@ class _BatchWindow:
         if saved_last_analyzed is not None:
             if self._endpoint_mode == mm_constants.EndpointMode.BATCH:
                 # Use the maximum between the saved last analyzed and the start of the batch
-                return max(
-                    saved_last_analyzed, self._first_request
-                )
+                return max(saved_last_analyzed, self._first_request)
             return saved_last_analyzed
         else:
             last_analyzed = self._get_initial_last_analyzed()
@@ -161,11 +156,17 @@ class _BatchWindow:
         if last_analyzed and self._endpoint_mode == mm_constants.EndpointMode.BATCH:
             # If the endpoint is a batch endpoint, we need to update the last analyzed time
             # to the end of the batch time.
-            print("[EYAL]: goping to generate another interval for the end of the batch ")
+            print(
+                "[EYAL]: goping to generate another interval for the end of the batch "
+            )
             print("[EYAL]: goping to generate last_analyzed ", last_analyzed)
             print("[EYAL]: goping to generate self._stop ", self._stop)
-            yield _Interval(datetime.datetime.fromtimestamp(last_analyzed, tz=datetime.timezone.utc),
-                            datetime.datetime.fromtimestamp(self._stop, tz=datetime.timezone.utc))
+            yield _Interval(
+                datetime.datetime.fromtimestamp(
+                    last_analyzed, tz=datetime.timezone.utc
+                ),
+                datetime.datetime.fromtimestamp(self._stop, tz=datetime.timezone.utc),
+            )
 
             self._update_last_analyzed(self._stop)
             logger.debug(
@@ -223,8 +224,9 @@ class _BatchWindowGenerator(AbstractContextManager):
 
     @classmethod
     def _get_last_updated_time(
-        cls, last_request: datetime.datetime,
-            # not_batch_endpoint: bool
+        cls,
+        last_request: datetime.datetime,
+        # not_batch_endpoint: bool
     ) -> int:
         """
         Get the last updated time of a model endpoint.
@@ -519,14 +521,17 @@ class MonitoringApplicationController:
         logger.info("Model endpoint process started", event=event)
 
         try:
-
             project_name = event[ControllerEvent.PROJECT]
             endpoint_id = event[ControllerEvent.ENDPOINT_ID]
 
-            if event[ControllerEvent.KIND] == mm_constants.ControllerEventKind.BATCH_COMPLETE:
-
+            if (
+                event[ControllerEvent.KIND]
+                == mm_constants.ControllerEventKind.BATCH_COMPLETE
+            ):
                 print("[EYAL]: it's a batch ep, list app names manually")
-                monitoring_functions = self.project_obj.list_model_monitoring_functions()
+                monitoring_functions = (
+                    self.project_obj.list_model_monitoring_functions()
+                )
                 if monitoring_functions:
                     applications_names = list(
                         {app.metadata.name for app in monitoring_functions}
@@ -534,7 +539,9 @@ class MonitoringApplicationController:
                     last_stream_timestamp = datetime.datetime.fromisoformat(
                         event[ControllerEvent.LAST_TIMESTAMP]
                     )
-                    first_request = datetime.datetime.fromisoformat(event[ControllerEvent.FIRST_TIMESTAMP])
+                    first_request = datetime.datetime.fromisoformat(
+                        event[ControllerEvent.FIRST_TIMESTAMP]
+                    )
                     endpoint_mode = mm_constants.EndpointMode.BATCH
                     model_endpoint = self.project_obj.list_model_endpoints(
                         uids=[endpoint_id],
@@ -553,8 +560,9 @@ class MonitoringApplicationController:
                     endpoint_updated = model_endpoint[0].metadata.updated.isoformat()
 
                     print("[EYAL]: batch ep found, endpoint name is ", endpoint_name)
-                    print("[EYAL]: batch ep found, endpoint updated is ", endpoint_updated)
-
+                    print(
+                        "[EYAL]: batch ep found, endpoint updated is ", endpoint_updated
+                    )
 
                     # get endpoint_updated and endpoint_name
                     # endpoint = self.project_obj.get_model_endpoint(
@@ -562,8 +570,10 @@ class MonitoringApplicationController:
                 else:
                     logger.info("No monitoring functions found", project=self.project)
                     return
-                print("[EYAL]: it's a batch ep, list app names manually, apps: ", applications_names)
-
+                print(
+                    "[EYAL]: it's a batch ep, list app names manually, apps: ",
+                    applications_names,
+                )
 
             else:
                 endpoint_name = event[ControllerEvent.ENDPOINT_NAME]
@@ -581,15 +591,13 @@ class MonitoringApplicationController:
                     ControllerEventEndpointPolicy.ENDPOINT_UPDATED
                 ]
 
-
                 endpoint_mode = mm_constants.EndpointMode.REAL_TIME
-                print("[EYAL]: it's a batch ep, list app names manually, apps: ", applications_names)
+                print(
+                    "[EYAL]: it's a batch ep, list app names manually, apps: ",
+                    applications_names,
+                )
 
-
-            logger.info(
-                "Starting analyzing for", timestamp=last_stream_timestamp
-            )
-
+            logger.info("Starting analyzing for", timestamp=last_stream_timestamp)
 
             with _BatchWindowGenerator(
                 project=project_name,
@@ -603,7 +611,6 @@ class MonitoringApplicationController:
                     ) in batch_window_generator.get_intervals(
                         # EYAL - first request: start batch time, last request: end batch time
                         application=application,
-
                         # not_batch_endpoint=not_batch_endpoint,
                         first_request=first_request,
                         last_request=last_stream_timestamp,
@@ -644,7 +651,10 @@ class MonitoringApplicationController:
                                 endpoint_updated=endpoint_updated,
                             )
 
-                if event[ControllerEvent.KIND] == mm_constants.ControllerEventKind.REGULAR_EVENT:
+                if (
+                    event[ControllerEvent.KIND]
+                    == mm_constants.ControllerEventKind.REGULAR_EVENT
+                ):
                     base_period = event[ControllerEvent.ENDPOINT_POLICY][
                         ControllerEventEndpointPolicy.BASE_PERIOD
                     ]
@@ -662,7 +672,6 @@ class MonitoringApplicationController:
                             ControllerEvent.TIMESTAMP: current_time.isoformat(
                                 timespec="microseconds"
                             ),
-
                             ControllerEvent.ENDPOINT_POLICY: event[
                                 ControllerEvent.ENDPOINT_POLICY
                             ],
@@ -678,7 +687,8 @@ class MonitoringApplicationController:
                             endpoint_id=endpoint_id,
                         )
             logger.info(
-                "Finish analyze for", timestamp=last_stream_timestamp,
+                "Finish analyze for",
+                timestamp=last_stream_timestamp,
             )
 
         except Exception:
@@ -746,7 +756,9 @@ class MonitoringApplicationController:
         """
         logger.info("Starting monitoring controller chief")
         applications_names = []
-        endpoints = self.project_obj.list_model_endpoints(tsdb_metrics=False, mode=mm_constants.EndpointMode.REAL_TIME).endpoints
+        endpoints = self.project_obj.list_model_endpoints(
+            tsdb_metrics=False, mode=mm_constants.EndpointMode.REAL_TIME
+        ).endpoints
         last_request_dict = self.tsdb_connector.get_last_request(
             endpoint_ids=[mep.metadata.uid for mep in endpoints]
         )
