@@ -145,6 +145,12 @@ class MonitoringPreProcessor(storey.MapClass):
                     request, resp = self.reconstruct_request_resp_fields(
                         event, model, monitoring_data[model]
                     )
+                    if hasattr(event, "_original_timestamp"):
+                        when = event._original_timestamp
+                    else:
+                        when = event._metadata.get(model, {}).get(
+                            mm_schemas.StreamProcessingEvent.WHEN
+                        )
                     monitoring_event_list.append(
                         {
                             mm_schemas.StreamProcessingEvent.MODEL: model,
@@ -154,9 +160,7 @@ class MonitoringPreProcessor(storey.MapClass):
                             mm_schemas.StreamProcessingEvent.MICROSEC: event._metadata.get(
                                 model, {}
                             ).get(mm_schemas.StreamProcessingEvent.MICROSEC),
-                            mm_schemas.StreamProcessingEvent.WHEN: event._metadata.get(
-                                model, {}
-                            ).get(mm_schemas.StreamProcessingEvent.WHEN),
+                            mm_schemas.StreamProcessingEvent.WHEN: when,
                             mm_schemas.StreamProcessingEvent.ENDPOINT_ID: monitoring_data[
                                 model
                             ].get(
@@ -189,6 +193,10 @@ class MonitoringPreProcessor(storey.MapClass):
             request, resp = self.reconstruct_request_resp_fields(
                 event, model, monitoring_data[model]
             )
+            if hasattr(event, "_original_timestamp"):
+                when = event._original_timestamp
+            else:
+                when = event._metadata.get(mm_schemas.StreamProcessingEvent.WHEN)
             monitoring_event_list.append(
                 {
                     mm_schemas.StreamProcessingEvent.MODEL: model,
@@ -198,9 +206,7 @@ class MonitoringPreProcessor(storey.MapClass):
                     mm_schemas.StreamProcessingEvent.MICROSEC: event._metadata.get(
                         mm_schemas.StreamProcessingEvent.MICROSEC
                     ),
-                    mm_schemas.StreamProcessingEvent.WHEN: event._metadata.get(
-                        mm_schemas.StreamProcessingEvent.WHEN
-                    ),
+                    mm_schemas.StreamProcessingEvent.WHEN: when,
                     mm_schemas.StreamProcessingEvent.ENDPOINT_ID: monitoring_data[
                         model
                     ].get(mlrun.common.schemas.MonitoringData.MODEL_ENDPOINT_UID),
