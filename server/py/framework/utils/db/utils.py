@@ -172,8 +172,8 @@ class DBUtil:
         self,
         config_items: Optional[Union[list[str], dict[str, Any]]] = None,
     ) -> None:
-        items = config_items or self._DEFAULT_DB_CONFIGURATIONS
-        keys = _to_keyset(items)
+        # items = config_items or self._DEFAULT_DB_CONFIGURATIONS
+        keys = _to_keyset(config_items)
 
         if not keys or keys.intersection(self._EMPTY_DB_CONFIGURATIONS):
             mlrun.utils.logger.debug(
