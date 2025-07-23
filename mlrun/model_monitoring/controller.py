@@ -126,12 +126,12 @@ class _BatchWindow:
         # Iterate timestamp from start until timestamp <= stop - step
         # so that the last interval will end at (timestamp + step) <= stop.
         # Add 1 to stop - step to get <= and not <.
+        print("[EYAL]: endpoint mode ", self._endpoint_mode)
+        print("[EYAL]: self._start is ", self._start)
+        print("[EYAL]: self.stop is ", self._stop)
+        print("[EYAL]: self._step is ", self._step)
         for timestamp in range(self._start, self._stop - self._step + 1, self._step):
-            print("[EYAL]: endpoint mode ", self._endpoint_mode)
             print("[EYAL]: timestamp is ", timestamp)
-            print("[EYAL]: self._start is ", self._start)
-            print("[EYAL]: self.stop is ", self._stop)
-            print("[EYAL]: self._step is ", self._step)
             entered = True
             start_time = datetime.datetime.fromtimestamp(
                 timestamp, tz=datetime.timezone.utc
