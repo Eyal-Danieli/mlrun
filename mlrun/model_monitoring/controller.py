@@ -127,6 +127,13 @@ class _BatchWindow:
         # Iterate timestamp from start until timestamp <= stop - step
         # so that the last interval will end at (timestamp + step) <= stop.
         # Add 1 to stop - step to get <= and not <.
+        print("[EYAL]: start: ",  datetime.datetime.fromtimestamp(
+            self._start, tz=datetime.timezone.utc
+        ))
+        print("[EYAL]: stop: ", datetime.datetime.fromtimestamp(
+            self._stop, tz=datetime.timezone.utc
+        ))
+        print("[EYAL]: step: ", self._step)
         for timestamp in range(self._start, self._stop - self._step + 1, self._step):
             entered = True
             start_time = datetime.datetime.fromtimestamp(
@@ -145,16 +152,49 @@ class _BatchWindow:
                 last_analyzed=last_analyzed,
             )
 
-        if last_analyzed and self._endpoint_mode == mm_constants.EndpointMode.BATCH:
+        if self._endpoint_mode == mm_constants.EndpointMode.BATCH:
             # If the endpoint is a batch endpoint, we need to update the last analyzed time
             # to the end of the batch time.
+            if last_analyzed:
+                if last_analyzed < self._stop:
+                    print("[EYAL]: Yielding partial interval, between last analyzed and stop")
+                    print("[EYAL]: Yielding partial interval, between last analyzed and stop, last_analyzed",datetime.datetime.fromtimestamp(
+                        last_analyzed, tz=datetime.timezone.utc
+                    ))
+                    print("[EYAL]: Yielding partial interval, between last analyzed and stop, stop",datetime.datetime.fromtimestamp(
+                        self._stop, tz=datetime.timezone.utc
+                    ))
+                    # If the last analyzed time is less than the stop time,
+                    # yield the last partial interval from last_analyzed to stop.
+                    yield _Interval(
+                        datetime.datetime.fromtimestamp(
+                            last_analyzed, tz=datetime.timezone.utc
+                        ),
+                        datetime.datetime.fromtimestamp(
+                            self._stop, tz=datetime.timezone.utc
+                        ),
+                    )
+            else:
+                # the difference between the end of the batch and the start of the batch
+                # is less than the step, so we need to yield a partial interval between
+                # them
+                print("[EYAL]: Yielding partial interval, less than step")
+                print("[EYAL]: Yielding partial interval, less than step, start",datetime.datetime.fromtimestamp(
+                        self._start, tz=datetime.timezone.utc
+                    ))
+                print("[EYAL]: Yielding partial interval, less than step, end",datetime.datetime.fromtimestamp(
+                        self._stop, tz=datetime.timezone.utc
+                    ))
+                yield _Interval(
+                    datetime.datetime.fromtimestamp(
+                        self._start, tz=datetime.timezone.utc
+                    ),
+                    datetime.datetime.fromtimestamp(
+                        self._stop, tz=datetime.timezone.utc
+                    ),
+                )
 
-            yield _Interval(
-                datetime.datetime.fromtimestamp(
-                    last_analyzed, tz=datetime.timezone.utc
-                ),
-                datetime.datetime.fromtimestamp(self._stop, tz=datetime.timezone.utc),
-            )
+
 
             self._update_last_analyzed(self._stop)
             logger.debug(
@@ -214,19 +254,24 @@ class _BatchWindowGenerator(AbstractContextManager):
     def _get_last_updated_time(
         cls,
         last_request: datetime.datetime,
+            endpoint_mode: mm_constants.EndpointMode,
     ) -> int:
         """
         Get the last updated time of a model endpoint.
         """
-        last_updated = int(
-            last_request.timestamp()
-            - cast(
-                float,
-                mlrun.mlconf.model_endpoint_monitoring.parquet_batching_timeout_secs,
-            )
-        )
 
-        return last_updated
+        if endpoint_mode == mm_constants.EndpointMode.REAL_TIME:
+
+            last_updated = int(
+                last_request.timestamp()
+                - cast(
+                    float,
+                    mlrun.mlconf.model_endpoint_monitoring.parquet_batching_timeout_secs,
+                )
+            )
+
+            return last_updated
+        return int(last_request.timestamp())
 
     def get_intervals(
         self,
@@ -246,7 +291,7 @@ class _BatchWindowGenerator(AbstractContextManager):
             schedules_file=self._schedules_file,
             application=application,
             timedelta_seconds=self._timedelta,
-            last_updated=self._get_last_updated_time(last_request),
+            last_updated=self._get_last_updated_time(last_request, endpoint_mode),
             first_request=int(first_request.timestamp()),
             endpoint_mode=endpoint_mode,
         )
