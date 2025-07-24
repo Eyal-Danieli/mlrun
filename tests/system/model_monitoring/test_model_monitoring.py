@@ -1976,8 +1976,8 @@ class TestModelEndpointGetMetrics(TestMLRunSystemModelMonitoring):
 class TestModelMonitoringOverJob(TestMLRunSystemModelMonitoring):
     """Test get_model_endpoint_monitoring_metrics functionality."""
 
-    project_name = "model-monitoring-over-job"
-    image = "mlrun/mlrun"
+    project_name = "model-monitoring-over-v2"
+    image = "artifactory.iguazeng.com:10557/eyald/mlrun:1.11.0"
 
     @pytest.mark.parametrize("with_timestamp_column", [False, True])
     def test_job_from_serving_runtime_with_model_tracking(self, with_timestamp_column):
