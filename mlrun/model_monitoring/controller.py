@@ -157,15 +157,8 @@ class _BatchWindow:
             # to the end of the batch time.
             if last_analyzed:
                 if last_analyzed < self._stop:
-                    print("[EYAL]: Yielding partial interval, between last analyzed and stop")
-                    print("[EYAL]: Yielding partial interval, between last analyzed and stop, last_analyzed",datetime.datetime.fromtimestamp(
-                        last_analyzed, tz=datetime.timezone.utc
-                    ))
-                    print("[EYAL]: Yielding partial interval, between last analyzed and stop, stop",datetime.datetime.fromtimestamp(
-                        self._stop, tz=datetime.timezone.utc
-                    ))
-                    # If the last analyzed time is less than the stop time,
-                    # yield the last partial interval from last_analyzed to stop.
+                    # If the last analyzed time is earlier than the stop time,
+                    # yield the final partial interval from last_analyzed to stop
                     yield _Interval(
                         datetime.datetime.fromtimestamp(
                             last_analyzed, tz=datetime.timezone.utc
@@ -175,16 +168,8 @@ class _BatchWindow:
                         ),
                     )
             else:
-                # the difference between the end of the batch and the start of the batch
-                # is less than the step, so we need to yield a partial interval between
-                # them
-                print("[EYAL]: Yielding partial interval, less than step")
-                print("[EYAL]: Yielding partial interval, less than step, start",datetime.datetime.fromtimestamp(
-                        self._start, tz=datetime.timezone.utc
-                    ))
-                print("[EYAL]: Yielding partial interval, less than step, end",datetime.datetime.fromtimestamp(
-                        self._stop, tz=datetime.timezone.utc
-                    ))
+                # The time span between the start and end of the batch is shorter than the step,
+                # so we need to yield a partial interval covering that range.
                 yield _Interval(
                     datetime.datetime.fromtimestamp(
                         self._start, tz=datetime.timezone.utc
@@ -193,8 +178,6 @@ class _BatchWindow:
                         self._stop, tz=datetime.timezone.utc
                     ),
                 )
-
-
 
             self._update_last_analyzed(self._stop)
             logger.debug(
@@ -254,14 +237,13 @@ class _BatchWindowGenerator(AbstractContextManager):
     def _get_last_updated_time(
         cls,
         last_request: datetime.datetime,
-            endpoint_mode: mm_constants.EndpointMode,
+        endpoint_mode: mm_constants.EndpointMode,
     ) -> int:
         """
         Get the last updated time of a model endpoint.
         """
 
         if endpoint_mode == mm_constants.EndpointMode.REAL_TIME:
-
             last_updated = int(
                 last_request.timestamp()
                 - cast(
