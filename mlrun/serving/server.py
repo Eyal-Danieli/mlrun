@@ -42,6 +42,7 @@ from mlrun.secrets import SecretsStore
 
 from ..common.helpers import parse_versioned_object_uri
 from ..common.schemas.model_monitoring.constants import FileTargetKind
+from ..common.schemas.serving import MAX_BATCH_JOB_DURATION
 from ..datastore import DataItem, get_stream_pusher
 from ..datastore.store_resources import ResourceCache
 from ..errors import MLRunInvalidArgumentError
@@ -608,45 +609,47 @@ async def async_execute_graph(
                 f"(status='{task_state}')"
             )
 
-    mm_enabled = True
     df = data.as_df()
 
     if df.empty:
         context.logger.warn("Job terminated due to empty inputs (0 rows)")
         return []
 
-    if timestamp_column:
+    track_models = spec.get("track_models")
+
+    if track_models and timestamp_column:
         context.logger.info(f"Sorting dataframe by {timestamp_column}")
         df[timestamp_column] = pd.to_datetime(  # in case it's a string
             df[timestamp_column]
         )
         df.sort_values(by=timestamp_column, inplace=True)
-        if len(df) >= 2:
+        if len(df) > 1:
             start_time = df[timestamp_column].iloc[0]
             end_time = df[timestamp_column].iloc[-1]
             time_range = end_time - start_time
             start_time = start_time.isoformat()
             end_time = end_time.isoformat()
             # TODO: tie this to the controller's base period
-            if time_range > pd.Timedelta("10000h"):
-                context.logger.warn(
-                    f"Dataframe time range is too long: {time_range}. Job will not be tracked!"
+            if time_range > pd.Timedelta(MAX_BATCH_JOB_DURATION):
+                raise mlrun.errors.MLRunRuntimeError(
+                    f"Dataframe time range is too long: {time_range}. "
+                    "Please disable tracking or reduce the input dataset's time range below the defined limit "
+                    f"of {MAX_BATCH_JOB_DURATION}."
                 )
-                mm_enabled = False
         else:
             start_time = end_time = df["timestamp"].iloc[0].isoformat()
     else:
+        # end time will be set from clock time when the batch completes
         start_time = datetime.now(tz=timezone.utc).isoformat()
 
-    if mm_enabled:
-        server.graph = add_system_steps_to_graph(
-            server.project,
-            copy.deepcopy(server.graph),
-            spec.get("track_models"),
-            context,
-            spec,
-            pause_until_background_task_completion=False,  # we've already awaited it
-        )
+    server.graph = add_system_steps_to_graph(
+        server.project,
+        copy.deepcopy(server.graph),
+        track_models,
+        context,
+        spec,
+        pause_until_background_task_completion=False,  # we've already awaited it
+    )
 
     if config.log_level.lower() == "debug":
         server.verbose = True
@@ -667,12 +670,12 @@ async def async_execute_graph(
     if server.verbose:
         context.logger.info(server.to_yaml())
 
-    responses = []
-
     async def run(body):
         event = storey.Event(id=index, body=body)
         if timestamp_column:
-            body = event.body
+            if batching:
+                # we use the first row in the batch to determine the timestamp for the whole batch
+                body = body[0]
             if not isinstance(body, dict):
                 raise mlrun.errors.MLRunRuntimeError(
                     f"When timestamp_column=True, event body must be a dict – got {type(body).__name__} instead"
@@ -682,13 +685,13 @@ async def async_execute_graph(
                     f"Event body '{body}' did not contain timestamp column '{timestamp_column}'"
                 )
             event._original_timestamp = body[timestamp_column]
-        response = await server.run(event, context)
-        responses.append(response)
+        return await server.run(event, context)
 
     if batching and not batch_size:
         batch_size = len(df)
 
     batch = []
+    tasks = []
     for index, row in df.iterrows():
         data = row.to_list() if read_as_lists else row.to_dict()
         if nest_under_inputs:
@@ -696,13 +699,15 @@ async def async_execute_graph(
         if batching:
             batch.append(data)
             if len(batch) == batch_size:
-                await run(batch)
+                tasks.append(asyncio.create_task(run(batch)))
                 batch = []
         else:
-            await run(data)
+            tasks.append(asyncio.create_task(run(data)))
 
     if batch:
-        await run(batch)
+        tasks.append(asyncio.create_task(run(batch)))
+
+    responses = await asyncio.gather(*tasks)
 
     termination_result = server.wait_for_completion()
     if asyncio.iscoroutine(termination_result):
@@ -755,6 +760,8 @@ def execute_graph(
     :param context: The job's execution client context.
     :param data: The input data to the job, to be pushed into the graph row by row, or in batches.
     :param timestamp_column: The name of the column that will be used as the timestamp for model monitoring purposes.
+        when timestamp_column is used in conjunction with batching, the first timestamp will be used for the entire
+        batch.
     :param batching: Whether to push one or more batches into the graph rather than row by row.
     :param batch_size: The number of rows to push per batch. If not set, and batching=True, the entire dataset will
         be pushed into the graph in one batch.

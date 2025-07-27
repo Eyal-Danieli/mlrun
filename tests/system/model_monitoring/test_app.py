@@ -908,8 +908,8 @@ class TestServingJobEndpoint(TestMLRunSystemModelMonitoring, _V3IORecordsChecker
     """
 
 
-    project_name = "test-serving-v5"
-    name_prefix = "infer-monitoring-v5"
+    project_name = "test-serving-v7"
+    name_prefix = "infer-monitoring-v7"
     # Set image to "<repo>/mlrun:<tag>" for local testing
     # image: typing.Optional[str] = None
     image = "artifactory.iguazeng.com:10557/eyald/mlrun:1.11.0"
@@ -1105,9 +1105,8 @@ class TestServingJobEndpoint(TestMLRunSystemModelMonitoring, _V3IORecordsChecker
             ], f"The values list is empty for result {result_values['full_name']}"
 
         first_result = response_content[0]
-        assert first_result["full_name"] == results_full_names[0]
+        assert first_result["full_name"] in results_full_names
         assert first_result["data"] == True
-        assert first_result["result_kind"] == 0
         assert len(first_result["values"]) == 2
 
     def test_serving_as_a_job(self) -> None:
