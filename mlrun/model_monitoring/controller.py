@@ -127,12 +127,14 @@ class _BatchWindow:
         # Iterate timestamp from start until timestamp <= stop - step
         # so that the last interval will end at (timestamp + step) <= stop.
         # Add 1 to stop - step to get <= and not <.
-        print("[EYAL]: start: ",  datetime.datetime.fromtimestamp(
-            self._start, tz=datetime.timezone.utc
-        ))
-        print("[EYAL]: stop: ", datetime.datetime.fromtimestamp(
-            self._stop, tz=datetime.timezone.utc
-        ))
+        print(
+            "[EYAL]: start: ",
+            datetime.datetime.fromtimestamp(self._start, tz=datetime.timezone.utc),
+        )
+        print(
+            "[EYAL]: stop: ",
+            datetime.datetime.fromtimestamp(self._stop, tz=datetime.timezone.utc),
+        )
         print("[EYAL]: step: ", self._step)
         for timestamp in range(self._start, self._stop - self._step + 1, self._step):
             entered = True
@@ -179,7 +181,7 @@ class _BatchWindow:
                     ),
                 )
 
-            self._update_last_analyzed(self._stop)
+            self._update_last_analyzed(last_analyzed=self._stop)
             logger.debug(
                 "Updated the last analyzed time for this endpoint and application to the end of the batch time",
                 application=self._application,
