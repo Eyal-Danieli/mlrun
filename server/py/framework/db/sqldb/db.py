@@ -5881,8 +5881,10 @@ class SQLDB(DBInterface):
         if mode:
             print("[EYAL]: mode is: {}".format(mode))
             if mode == EndpointMode.REAL_TIME:
-                # Real Time + Old Batch EP
-                query = query.filter(ModelEndpoint.mode != EndpointMode.BATCH)
+                # Real Time + Old Batch EP (none value)
+                query = query.filter(
+                    or_(ModelEndpoint.mode == EndpointMode.REAL_TIME,
+                        ModelEndpoint.mode.is_(None)))
             else:
                 # Batch EP
                 query = query.filter(ModelEndpoint.mode == mode)

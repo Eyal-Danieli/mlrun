@@ -14,18 +14,17 @@
 
 """Update parent artifact deletion
 
-Revision ID: c2fbc6d565af
+Revision ID: e77074ae071f
 Revises: 6e8e4df16a4e
-Create Date: 2025-08-03 11:32:44.045770
+Create Date: 2025-08-03 14:10:00.939312
 
 """
 from alembic import op
 import sqlalchemy as sa
 
-import framework.db.sqldb.sql_types
 
 # revision identifiers, used by Alembic.
-revision = 'c2fbc6d565af'
+revision = 'e77074ae071f'
 down_revision = '6e8e4df16a4e'
 branch_labels = None
 depends_on = None
