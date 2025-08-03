@@ -338,6 +338,8 @@ class EndpointType(IntEnum):
 class EndpointMode(StrEnum):
     REAL_TIME = "real_time"
     BATCH = "batch"
+# WE ARE GOING TO CHANGE MODEL ENDPOINT SCHEMA IN DB AND ADD MODE, by default its real time.
+# old batchs WILL BE NON OR REAL TIME.
 
 
 class MonitoringFunctionNames(MonitoringStrEnum):
