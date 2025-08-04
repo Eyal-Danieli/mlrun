@@ -5882,14 +5882,15 @@ class SQLDB(DBInterface):
             if mode == EndpointMode.REAL_TIME:
                 # Real Time + Old Batch EP (none value)
                 query = query.filter(
-                    or_(ModelEndpoint.mode == EndpointMode.REAL_TIME,
-                        ModelEndpoint.mode.is_(None)))
-
+                    or_(
+                        ModelEndpoint.mode == EndpointMode.REAL_TIME,
+                        ModelEndpoint.mode.is_(None),
+                    )
+                )
 
             else:
                 # Batch EP
                 query = query.filter(ModelEndpoint.mode == mode)
-
 
         # Apply function-related filters
         if function_name or function_tag:
@@ -7937,7 +7938,7 @@ class SQLDB(DBInterface):
             function_id=function_record.id if function_record else None,
             model_id=model_endpoint.spec._model_id or None,
             endpoint_type=model_endpoint.metadata.endpoint_type.value,
-            mode= model_endpoint.metadata.mode.value,
+            mode=model_endpoint.metadata.mode.value,
             created=current_time,
             updated=current_time,
         )

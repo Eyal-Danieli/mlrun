@@ -2255,14 +2255,17 @@ class MonitoringDeployment:
         label_names: typing.Optional[list[str]] = None,
         model_path: typing.Optional[str] = None,
     ) -> mlrun.common.schemas.ModelEndpoint:
-
         function_tag = function_tag or "latest"
         return mlrun.common.schemas.ModelEndpoint(
             metadata=mlrun.common.schemas.ModelEndpointMetadata(
-                project=self.project, name=name, endpoint_type=endpoint_type, uid=uid,
+                project=self.project,
+                name=name,
+                endpoint_type=endpoint_type,
+                uid=uid,
                 mode=mlrun.common.schemas.model_monitoring.EndpointMode.BATCH
-                if endpoint_type == mlrun.common.schemas.model_monitoring.EndpointType.BATCH_EP
-                else mlrun.common.schemas.model_monitoring.EndpointMode.REAL_TIME
+                if endpoint_type
+                == mlrun.common.schemas.model_monitoring.EndpointType.BATCH_EP
+                else mlrun.common.schemas.model_monitoring.EndpointMode.REAL_TIME,
             ),
             spec=mlrun.common.schemas.ModelEndpointSpec(
                 function_name=function_name,

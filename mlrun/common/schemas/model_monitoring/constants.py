@@ -339,6 +339,8 @@ class EndpointType(IntEnum):
 class EndpointMode(IntEnum):
     REAL_TIME = 0
     BATCH = 1
+
+
 # WE ARE GOING TO CHANGE MODEL ENDPOINT SCHEMA IN DB AND ADD MODE, by default its real time.
 # old batchs WILL BE NON OR REAL TIME.
 

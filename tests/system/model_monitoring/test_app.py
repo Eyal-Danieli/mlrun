@@ -894,6 +894,7 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
         self._test_function_summaries()
         self._test_drift_over_time()
 
+
 @TestMLRunSystemModelMonitoring.skip_test_if_env_not_configured
 @pytest.mark.enterprise
 class TestRecordResults(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
@@ -995,8 +996,6 @@ class TestRecordResults(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
             **({} if self.image is None else {"image": self.image}),
         )
 
-
-
     def test_inference_feature_set(self) -> None:
         self._log_model()
 
@@ -1006,8 +1005,10 @@ class TestRecordResults(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
 
         endpoint_id = self._record_results()
 
-        time.sleep(2 * self.app_interval_seconds
-            + mlrun.mlconf.model_endpoint_monitoring.parquet_batching_timeout_secs)
+        time.sleep(
+            2 * self.app_interval_seconds
+            + mlrun.mlconf.model_endpoint_monitoring.parquet_batching_timeout_secs
+        )
 
         mep = mlrun.db.get_run_db().get_model_endpoint(
             name=f"{self.name_prefix}-test",
@@ -1021,6 +1022,7 @@ class TestRecordResults(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
             apps_data=self.apps_data,
         )
         self._test_predictions_table(mep.metadata.uid, should_be_empty=True)
+
 
 @TestMLRunSystemModelMonitoring.skip_test_if_env_not_configured
 @pytest.mark.enterprise

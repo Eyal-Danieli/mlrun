@@ -13,33 +13,35 @@
 # limitations under the License.
 import collections
 import concurrent.futures
-from collections import OrderedDict
 import datetime
-import mlrun.feature_store as fstore
 import json
 import os
 import traceback
+import warnings
+from collections import OrderedDict
 from collections.abc import Iterator
 from contextlib import AbstractContextManager
 from types import TracebackType
 from typing import Any, NamedTuple, Optional, Union, cast
-from mlrun.common.schemas import EndpointType
+
 import nuclio_sdk
 import pandas as pd
-import warnings
+
 import mlrun
 import mlrun.common.schemas.model_monitoring.constants as mm_constants
+import mlrun.feature_store as fstore
 import mlrun.model_monitoring
 import mlrun.model_monitoring.db._schedules as schedules
 import mlrun.model_monitoring.helpers
 import mlrun.platforms.iguazio
+from mlrun.common.schemas import EndpointType
 from mlrun.common.schemas.model_monitoring.constants import (
     ControllerEvent,
     ControllerEventEndpointPolicy,
 )
 from mlrun.errors import err_to_str
 from mlrun.model_monitoring.helpers import batch_dict2timedelta
-from mlrun.utils import logger, datetime_now
+from mlrun.utils import datetime_now, logger
 
 _SECONDS_IN_DAY = int(datetime.timedelta(days=1).total_seconds())
 _SECONDS_IN_MINUTE = 60
@@ -254,7 +256,8 @@ class _BatchWindowGenerator(AbstractContextManager):
                 # `update_model_endpoint_last_request`.
                 last_updated = min(int(datetime_now().timestamp()), last_updated)
                 logger.debug(
-                    "The endpoint does not have a stream", last_updated=last_updated)
+                    "The endpoint does not have a stream", last_updated=last_updated
+                )
 
             return last_updated
         return int(last_request.timestamp())
@@ -278,7 +281,9 @@ class _BatchWindowGenerator(AbstractContextManager):
             schedules_file=self._schedules_file,
             application=application,
             timedelta_seconds=self._timedelta,
-            last_updated=self._get_last_updated_time(last_request, endpoint_mode, not_old_batch_endpoint),
+            last_updated=self._get_last_updated_time(
+                last_request, endpoint_mode, not_old_batch_endpoint
+            ),
             first_request=int(first_request.timestamp()),
             endpoint_mode=endpoint_mode,
         )
@@ -572,7 +577,6 @@ class MonitoringApplicationController:
                     logger.info("No monitoring functions found", project=self.project)
                     return
 
-
             else:
                 endpoint_name = event[ControllerEvent.ENDPOINT_NAME]
                 applications_names = event[ControllerEvent.ENDPOINT_POLICY][
@@ -598,7 +602,7 @@ class MonitoringApplicationController:
                     FutureWarning,
                 )
                 not_old_batch_endpoint = (
-                        event[ControllerEvent.ENDPOINT_TYPE] != EndpointType.BATCH_EP
+                    event[ControllerEvent.ENDPOINT_TYPE] != EndpointType.BATCH_EP
                 )
 
             logger.info(
@@ -619,7 +623,7 @@ class MonitoringApplicationController:
                         first_request=first_request,
                         last_request=last_stream_timestamp,
                         endpoint_mode=endpoint_mode,
-                        not_old_batch_endpoint=not_old_batch_endpoint
+                        not_old_batch_endpoint=not_old_batch_endpoint,
                     ):
                         data_in_window = False
                         if not_old_batch_endpoint:
@@ -639,8 +643,8 @@ class MonitoringApplicationController:
                                 )
                             self.feature_sets.move_to_end(endpoint_id, last=False)
                             if (
-                                    len(self.feature_sets)
-                                    > self._MAX_FEATURE_SET_PER_WORKER
+                                len(self.feature_sets)
+                                > self._MAX_FEATURE_SET_PER_WORKER
                             ):
                                 self.feature_sets.popitem(last=True)
                             m_fs = self.feature_sets.get(endpoint_id)
@@ -706,9 +710,9 @@ class MonitoringApplicationController:
                             ControllerEvent.ENDPOINT_TYPE: event[
                                 ControllerEvent.ENDPOINT_TYPE
                             ],
-                        ControllerEvent.FEATURE_SET_URI: event[
-                            ControllerEvent.FEATURE_SET_URI
-                        ],
+                            ControllerEvent.FEATURE_SET_URI: event[
+                                ControllerEvent.FEATURE_SET_URI
+                            ],
                             ControllerEvent.FIRST_REQUEST: event[
                                 ControllerEvent.FIRST_REQUEST
                             ],
