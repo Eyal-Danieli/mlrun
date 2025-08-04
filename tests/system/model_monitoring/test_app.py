@@ -1974,7 +1974,7 @@ class TestAppJobModelEndpointData(TestMLRunSystemModelMonitoring):
 
             run_result = CountApp.evaluate(
                 func_path=str(Path(__file__).parent / "assets/application.py"),
-                func_name=f"function-{i}",
+                func_name=f"count-app-{i}-batch",
                 endpoints=endpoints,
                 start=start,
                 end=end,
@@ -2033,10 +2033,10 @@ class TestAppJobModelEndpointData(TestMLRunSystemModelMonitoring):
                 assert metrics == [
                     ModelEndpointMonitoringMetric(
                         project=self.project_name,
-                        app="CountApp",
+                        app="count-app-0-batch",
                         type="result",
                         name="count",
-                        full_name=f"{self.project_name}.CountApp.result.count",
+                        full_name=f"{self.project_name}.count-app-0-batch.result.count",
                         kind=ResultKindApp.model_performance,
                     ),
                     ModelEndpointMonitoringMetric(
