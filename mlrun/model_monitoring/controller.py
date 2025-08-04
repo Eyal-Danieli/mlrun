@@ -706,6 +706,9 @@ class MonitoringApplicationController:
                             ControllerEvent.ENDPOINT_TYPE: event[
                                 ControllerEvent.ENDPOINT_TYPE
                             ],
+                        ControllerEvent.FEATURE_SET_URI: event[
+                            ControllerEvent.FEATURE_SET_URI
+                        ],
                             ControllerEvent.FIRST_REQUEST: event[
                                 ControllerEvent.FIRST_REQUEST
                             ],
