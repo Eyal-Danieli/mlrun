@@ -7937,7 +7937,7 @@ class SQLDB(DBInterface):
             function_id=function_record.id if function_record else None,
             model_id=model_endpoint.spec._model_id or None,
             endpoint_type=model_endpoint.metadata.endpoint_type.value,
-            mode= EndpointMode.REAL_TIME.value if model_endpoint.metadata.endpoint_type != EndpointType.BATCH_EP else EndpointMode.BATCH.value,
+            mode= model_endpoint.metadata.mode.value,
             created=current_time,
             updated=current_time,
         )

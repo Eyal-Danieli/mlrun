@@ -913,6 +913,7 @@ class MonitoringApplicationController:
                     sep=" ", timespec="microseconds"
                 ),
                 endpoint_type=endpoint.metadata.endpoint_type.value,
+                feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
                 endpoint_policy=policy,
             )
 

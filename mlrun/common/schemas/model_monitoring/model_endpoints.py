@@ -29,6 +29,7 @@ from .constants import (
     MODEL_ENDPOINT_ID_PATTERN,
     PROJECT_PATTERN,
     EndpointType,
+EndpointMode,
     ModelEndpointMonitoringMetricType,
     ModelMonitoringMode,
     ResultKindApp,
@@ -118,6 +119,7 @@ class ModelEndpointMetadata(ObjectMetadata, ModelEndpointParser):
     project: constr(regex=PROJECT_PATTERN)
     endpoint_type: EndpointType = EndpointType.NODE_EP
     uid: Optional[constr(regex=MODEL_ENDPOINT_ID_PATTERN)]
+    mode: EndpointMode = EndpointMode.REAL_TIME
 
     @classmethod
     def mutable_fields(cls):
