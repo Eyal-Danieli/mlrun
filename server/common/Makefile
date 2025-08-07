@@ -72,9 +72,8 @@ compile-schemas-dockerized: schemas-compiler
 		make compile-schemas-local
 
 compile-schemas-go: $(GO_TARGETS)
-	@echo "Syncing → $(GO_OUT_DIR)"
 	@mkdir -p ../go/proto/build
-	@cp -RL $(GO_PKG_DIR)/* ../go/proto/
+	@cp -RL $(GO_PKG_DIR)/* ../go/proto/build/
 
 compile-schemas-python: $(PY_TARGETS)
 	@echo "Syncing → $(PY_TARGET_DIR)"
@@ -85,8 +84,9 @@ $(GO_PKG_DIR)/%.pb.go: $(PROTO_DIR)/%.proto
 	@mkdir -p $(@D)
 	@protoc \
 		--go_out=$(GO_OUT_DIR) \
+		--go_opt=paths=source_relative \
 		--go-grpc_out=$(GO_OUT_DIR) \
-		--go-grpc_opt=require_unimplemented_servers=false \
+		--go-grpc_opt=paths=source_relative,require_unimplemented_servers=false \
 		$<
 
 $(PY_OUT_DIR)/%_pb2.py $(PY_OUT_DIR)/%_pb2_grpc.py: $(PROTO_DIR)/%.proto
