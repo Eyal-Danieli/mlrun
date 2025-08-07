@@ -13,11 +13,10 @@
 # limitations under the License.
 
 ARG MLRUN_PYTHON_VERSION=3.11
-ARG MLRUN_PIP_VERSION=25.0
 ARG MLRUN_UV_IMAGE=ghcr.io/astral-sh/uv:latest
-ARG MLRUN_CACHE_DATE=initial
 
 FROM ${MLRUN_UV_IMAGE} AS uv-image
+
 FROM quay.io/jupyter/scipy-notebook:python-${MLRUN_PYTHON_VERSION}
 ARG MLRUN_PYTHON_VERSION
 ARG MLRUN_PIP_VERSION
@@ -38,6 +37,9 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/
 
+# Redeclare python version (used above in FROM)
+ARG MLRUN_PYTHON_VERSION=3.11
+
 # Create and activate mlrun conda environment
 RUN conda create -y -n mlrun python=${MLRUN_PYTHON_VERSION} && \
     echo "source /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
@@ -49,6 +51,7 @@ USER $NB_UID
 # Ensure uv uses mlrun conda env
 ENV PATH="/opt/conda/envs/mlrun/bin:$PATH"
 
+ARG MLRUN_PIP_VERSION=25.0
 RUN python -m pip install --upgrade pip~=${MLRUN_PIP_VERSION} && \
     conda update --all --yes
 
@@ -73,7 +76,7 @@ RUN rm -rf $HOME/tutorials/genai-02-model-monitor-llm.ipynb $HOME/tutorials/gena
 # mainly because of how the jupyter image is built with conda
 # can be removed once we have newer jupyter image
 RUN --mount=from=uv-image,source=/uv,target=/bin/uv \
-    --mount=type=cache,id=pip-${MLRUN_PYTHON_VERSION},target=/root/.cache/uv \
+    --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=dockerfiles/jupyter/locked-requirements.txt,target=locked-requirements.txt \
     CONDA_PREFIX=/opt/conda/envs/mlrun uv pip install --no-deps --require-hashes -r locked-requirements.txt --python-version ${MLRUN_PYTHON_VERSION}
 
@@ -81,9 +84,13 @@ RUN --mount=from=uv-image,source=/uv,target=/bin/uv \
 COPY --chown=$NB_UID:$NB_GID . /tmp/mlrun
 
 RUN --mount=from=uv-image,source=/uv,target=/bin/uv \
-    --mount=type=cache,id=pip-${MLRUN_PYTHON_VERSION},target=/root/.cache/uv \
-    cd /tmp/mlrun && CONDA_PREFIX=/opt/conda/envs/mlrun uv pip install '.[complete]' --python-version ${MLRUN_PYTHON_VERSION} && uv cache clean
+    --mount=type=cache,target=/root/.cache/uv \
+    cd /tmp/mlrun && CONDA_PREFIX=/opt/conda/envs/mlrun uv pip install '.[complete]' --python-version ${MLRUN_PYTHON_VERSION}
 
+# cleanup uv cache
+RUN --mount=from=uv-image,source=/uv,target=/bin/uv \
+    --mount=type=cache,target=/root/.cache/uv \
+    uv cache clean
 
 # Switch to root to clean up files that may have been written with root permissions
 USER root
@@ -99,7 +106,7 @@ RUN rm -rf /tmp/mlrun \
 USER $NB_UID
 
 # This will usually cause a cache miss - so keep it in the last layers
-ARG MLRUN_CACHE_DATE
+ARG MLRUN_CACHE_DATE=initial
 
 # Use 1.7.x version from mlrun/demos to update the demos(do not update version).
 RUN git clone --branch 1.7.x https://github.com/mlrun/demos.git $HOME/demos && \

@@ -36,6 +36,6 @@ release:
 
 clean:
 	@for pkg in $(PACKAGES); do \
-	  echo "Cleaning $$pkg"; \
-	  (cd $$pkg && rm -rf dist build *.egg-info src/*.egg-info); \
+        echo "Cleaning $$pkg"; \
+        pushd $$pkg && rm -rf dist build *.egg-info src/*.egg-info && popd; \
 	done

@@ -235,20 +235,11 @@ update-version-file: ## Update the version file
 	python ./automation/version/version_file.py ensure --mlrun-version $(MLRUN_VERSION)
 
 .PHONY: generate-dockerignore
-generate-dockerignore: ## Copies the root .dockerignore and removes test exclusions for test-system
+generate-dockerignore: ## Copies the root .dockerignore and removes the tests pattern from it
 	$(eval TARGET := dockerfiles/${DEST}/Dockerfile.dockerignore)
-	@if [ -z "${DEST}" ]; then \
-		echo "Error: DEST variable must be set"; \
-		exit 1; \
-	fi; \
-	echo "Generating $(TARGET)..."; \
-	temp_file=$$(mktemp); \
-	if [ "$(DEST)" = "test-system" ]; then \
-		grep -vE '(\*\*/tests|\*\*/env\.yml|\*\*/test-[^/]*\.yml|\*\*/model_monitoring/assets)' .dockerignore > $$temp_file; \
-	else \
-		sed '/\*\*\/tests/d' .dockerignore > $$temp_file; \
-	fi; \
-	if [ -f "$(TARGET)" ]; then \
+	@if [ -f "$(TARGET)" ]; then \
+		temp_file=$$(mktemp) && \
+		sed '/\*\*\/tests/d' .dockerignore > $$temp_file && \
 		if cmp -s $$temp_file "$(TARGET)"; then \
 			echo "File $(TARGET) already exists and content is identical"; \
 			rm $$temp_file; \
@@ -258,7 +249,7 @@ generate-dockerignore: ## Copies the root .dockerignore and removes test exclusi
 			mv $$temp_file "$(TARGET)"; \
 		fi; \
 	else \
-		mv $$temp_file "$(TARGET)"; \
+		sed '/\*\*\/tests/d' .dockerignore > "$(TARGET)"; \
 	fi
 
 
@@ -301,7 +292,7 @@ MLRUN_CACHE_IMAGE_PUSH_COMMAND := $(if $(and $(MLRUN_DOCKER_CACHE_FROM_TAG),$(ML
 DEFAULT_IMAGES += $(MLRUN_IMAGE_NAME_TAGGED)
 
 .PHONY: mlrun
-mlrun: common-image update-version-file ## Build mlrun docker image
+mlrun: update-version-file ## Build mlrun docker image
 	$(MLRUN_CACHE_IMAGE_PULL_COMMAND)
 	docker build \
 		--file dockerfiles/mlrun/Dockerfile \
@@ -334,7 +325,7 @@ MLRUN_KFP_CACHE_IMAGE_PUSH_COMMAND := $(if $(and $(MLRUN_DOCKER_CACHE_FROM_TAG),
 DEFAULT_IMAGES += $(MLRUN_KFP_IMAGE_NAME_TAGGED)
 
 .PHONY: mlrun-kfp
-mlrun-kfp: common-image update-version-file ## Build mlrun docker image with KFP
+mlrun-kfp: update-version-file ## Build mlrun docker image with KFP
 	$(MLRUN_KFP_CACHE_IMAGE_PULL_COMMAND)
 	docker build \
 		--file dockerfiles/mlrun-kfp/Dockerfile \
@@ -479,43 +470,6 @@ else
 	$(MAKE) -C server/go compile-schemas
 endif
 
-###############################################################################
-# Common base image
-###############################################################################
-
-COMMON_IMAGE_TAG     ?= mlrun_common_image:$(MLRUN_PYTHON_VERSION)
-COMMON_STAMP         ?= build/common-image.$(MLRUN_PYTHON_VERSION).stamp
-COMMON_DOCKER_ARGS   := --build-arg MLRUN_PYTHON_VERSION=$(MLRUN_PYTHON_VERSION)
-COMMON_DOCKERFILE     := dockerfiles/common/Dockerfile
-
-common-image-3.11:
-	$(MAKE) common-image MLRUN_PYTHON_VERSION=3.11
-
-# --- Build (cached) ----------------------------------------------------------
-ifeq ($(strip $(MLRUN_NO_CACHE)),)
-common-image: $(COMMON_STAMP)
-
-$(COMMON_STAMP): $(COMMON_DOCKERFILE)
-	@if ! docker image inspect $(COMMON_IMAGE_TAG) >/dev/null 2>&1; then \
-	    echo "Building $(COMMON_IMAGE_TAG)…";                   \
-	    docker build $(COMMON_DOCKER_ARGS) -f $(COMMON_DOCKERFILE)     \
-	                -t $(COMMON_IMAGE_TAG) . ;                         \
-	fi
-	@mkdir -p $(dir $@) && touch $@
-
-else  # when MLRUN_NO_CACHE is set
-.PHONY: common-image
-common-image:
-	docker build --no-cache $(COMMON_DOCKER_ARGS) -f $(COMMON_DOCKERFILE) \
-	            -t $(COMMON_IMAGE_TAG) .
-endif
-
-.PHONY: clean-common-image
-clean-common-image:
-	docker rmi $(COMMON_IMAGE_TAG) || true
-	rm -f $(COMMON_STAMP)
-
-
 MLRUN_API_IMAGE_NAME := $(MLRUN_DOCKER_IMAGE_PREFIX)/mlrun-api
 MLRUN_API_CACHE_IMAGE_NAME := $(MLRUN_CACHE_DOCKER_IMAGE_PREFIX)/mlrun-api
 MLRUN_API_IMAGE_NAME_TAGGED := $(MLRUN_API_IMAGE_NAME):$(MLRUN_DOCKER_TAG)$(MLRUN_PYTHON_VERSION_SUFFIX)
@@ -525,12 +479,8 @@ MLRUN_API_CACHE_IMAGE_PULL_COMMAND := $(if $(and $(MLRUN_DOCKER_CACHE_FROM_TAG),
 MLRUN_API_CACHE_IMAGE_PUSH_COMMAND := $(if $(and $(MLRUN_DOCKER_CACHE_FROM_TAG),$(MLRUN_PUSH_DOCKER_CACHE_IMAGE)),docker tag $(MLRUN_API_IMAGE_NAME_TAGGED) $(MLRUN_API_CACHE_IMAGE_NAME_TAGGED) && docker push $(MLRUN_API_CACHE_IMAGE_NAME_TAGGED),)
 DEFAULT_IMAGES += $(MLRUN_API_IMAGE_NAME_TAGGED)
 
-
-# The API (and the common image it inherits from) must *always* be built on
-# Python 3.11, regardless of what the rest of the matrix is doing.
-api: export MLRUN_PYTHON_VERSION = 3.11
 .PHONY: api
-api: common-image-3.11	 compile-schemas update-version-file ## Build mlrun-api docker image
+api: compile-schemas update-version-file ## Build mlrun-api docker image
 	$(MLRUN_API_CACHE_IMAGE_PULL_COMMAND)
 	docker build \
 		--file dockerfiles/mlrun-api/Dockerfile \
@@ -558,7 +508,7 @@ MLRUN_TEST_CACHE_IMAGE_PULL_COMMAND := $(if $(and $(MLRUN_DOCKER_CACHE_FROM_TAG)
 MLRUN_TEST_CACHE_IMAGE_PUSH_COMMAND := $(if $(and $(MLRUN_DOCKER_CACHE_FROM_TAG),$(MLRUN_PUSH_DOCKER_CACHE_IMAGE)),docker tag $(MLRUN_TEST_IMAGE_NAME_TAGGED) $(MLRUN_TEST_CACHE_IMAGE_NAME_TAGGED) && docker push $(MLRUN_TEST_CACHE_IMAGE_NAME_TAGGED),)
 
 .PHONY: build-test
-build-test: common-image compile-schemas update-version-file ## Build test docker image
+build-test: compile-schemas update-version-file ## Build test docker image
 	$(MAKE) generate-dockerignore DEST=test
 	$(MLRUN_TEST_CACHE_IMAGE_PULL_COMMAND)
 	docker build \
@@ -579,10 +529,11 @@ push-test: build-test ## Push test docker image
 MLRUN_SYSTEM_TEST_IMAGE_NAME := $(MLRUN_DOCKER_IMAGE_PREFIX)/test-system:$(MLRUN_DOCKER_TAG)
 
 .PHONY: build-test-system
-build-test-system: common-image compile-schemas update-version-file ## Build system tests docker image
+build-test-system: compile-schemas update-version-file ## Build system tests docker image
 	$(MAKE) generate-dockerignore DEST=test-system
 	docker build \
 		--file dockerfiles/test-system/Dockerfile \
+		--build-arg MLRUN_PYTHON_VERSION=$(MLRUN_PYTHON_VERSION) \
 		--build-arg MLRUN_PIP_VERSION=$(MLRUN_PIP_VERSION) \
 		--build-arg MLRUN_UV_VERSION=$(MLRUN_UV_VERSION) \
 		$(MLRUN_DOCKER_NO_CACHE_FLAG) \
@@ -668,7 +619,7 @@ test: clean ## Run mlrun tests
 
 
 .PHONY: test-integration-dockerized
-test-integration-dockerized: build-test api ## Run mlrun integration tests in docker container, some tests require the api image to be built
+test-integration-dockerized: build-test ## Run mlrun integration tests in docker container
 	COVERAGE_MOUNT_PATH="/tmp/coverage_reports/integration_tests" ;\
 	$(SETUP_COVERAGE_MOUNTING)  && \
 	docker run \
