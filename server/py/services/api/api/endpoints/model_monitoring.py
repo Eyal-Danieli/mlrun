@@ -61,6 +61,7 @@ async def _verify_authorization(
 ) -> None:
     """Verify project authorization"""
     if (
+        client_version and
         semver.Version.parse(client_version)
         < semver.Version.parse(MINIMUM_CLIENT_VERSION_FOR_MM)
         and "unstable" not in client_version
