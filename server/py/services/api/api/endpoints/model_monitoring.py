@@ -386,10 +386,6 @@ async def _common_function_parameters(
                 "The start time must be before the end time. Note that if end time is not provided, "
                 "the current time is used by default."
             )
-    else:
-        raise mlrun.errors.MLRunInvalidArgumentError(
-            "Provided only one of start time, end time. Please provide both or neither."
-        )
 
     return _FunctionSummariesParams(
         project=project,

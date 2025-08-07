@@ -51,15 +51,13 @@ class FunctionSummary(BaseModel):
         """
         Create a FunctionSummary instance from a dictionary.
         """
-
+        print("[EYAL]: func dict is: {}".format(func_dict))
         return cls(
             type=func_type,
             name=func_dict["metadata"]["name"],
             application_class=""
             if func_type != FunctionsType.APPLICATION
-            else func_dict["spec"]["graph"]["steps"]["PushToMonitoringWriter"]["after"][
-                0
-            ],
+            else func_dict["spec"]["graph"]["steps"]["PrepareMonitoringEvent"]["class_args"]["application_name"],
             project_name=func_dict["metadata"]["project"],
             updated_time=func_dict["metadata"].get("updated"),
             status=func_dict["status"].get("state"),
