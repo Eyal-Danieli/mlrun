@@ -1187,15 +1187,20 @@ class MonitoringDeployment:
         mm_functions_list = self.list_model_monitoring_functions(
             labels=labels, format_=mlrun.common.formatters.FunctionFormat.minimal
         )
+        print("[EYAL]: mm functions list: ", mm_functions_list)
         function_summaries_list = []
 
         if not mm_functions_list:
             logger.info("No model monitoring applications found")
             return []
         if names:
+            print("[EYAL]: names list: ", names)
+            # convert names into lower case
+            names = [name.lower() for name in names]
             mm_functions_list = [
                 fn for fn in mm_functions_list if fn["metadata"]["name"] in names
             ]
+            print("[EYAL]: mm functions list after names: ", mm_functions_list)
 
         detection_stats_dict = {}
         processed_model_endpoints_dict = {}

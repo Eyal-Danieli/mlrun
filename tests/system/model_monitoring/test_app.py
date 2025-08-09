@@ -319,9 +319,10 @@ class _V3IORecordsChecker:
 @TestMLRunSystemModelMonitoring.skip_test_if_env_not_configured
 @pytest.mark.enterprise
 class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker):
-    project_name = "test-app-flow"
+    project_name = "test-app-flow-v54"
     # Set image to "<repo>/mlrun:<tag>" for local testing
     image: typing.Optional[str] = None
+    image = "artifactory.iguazeng.com:10557/eyald/mlrun:1.11.0"
     error_count = 10
 
     @classmethod
@@ -706,7 +707,7 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
         function_summaries = self.project.get_monitoring_function_summaries()
         assert len(function_summaries) == 3 + len(self.apps_data)
         function_summaries = self.project.get_monitoring_function_summaries(
-            include_infra=False
+            include_infra=False, start=datetime(2020, 1, 1)
         )
         assert len(function_summaries) == len(self.apps_data)
 
@@ -718,7 +719,7 @@ class TestMonitoringAppFlow(TestMLRunSystemModelMonitoring, _V3IORecordsChecker)
             self._logger.debug("Checking Evidently function summary")
             evidently_func_summary_list = (
                 self.project.get_monitoring_function_summaries(
-                    include_infra=False, names=[DemoEvidentlyMonitoringApp.NAME]
+                    include_infra=False, names=[DemoEvidentlyMonitoringApp.NAME],
                 )
             )
 
