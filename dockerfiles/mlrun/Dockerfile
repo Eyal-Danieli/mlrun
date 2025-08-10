@@ -74,6 +74,7 @@ RUN --mount=from=uv-image,source=/uv,target=/bin/uv \
 WORKDIR /tmp/mlrun
 COPY *.txt *.md *.py *.toml ./
 COPY mlrun mlrun
+COPY mcp_server mlrun_code/mcp_server
 COPY dockerfiles/mlrun-api dockerfiles/mlrun-api
 
 RUN --mount=from=uv-image,source=/uv,target=/bin/uv \
