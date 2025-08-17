@@ -1188,7 +1188,6 @@ class MonitoringDeployment:
             labels=labels, format_=mlrun.common.formatters.FunctionFormat.minimal
         )
         function_summaries_list = []
-
         if not mm_functions_list:
             logger.info("No model monitoring applications found")
             return []
@@ -1198,6 +1197,7 @@ class MonitoringDeployment:
             mm_functions_list = [
                 fn for fn in mm_functions_list if fn["metadata"]["name"] in lower_names
             ]
+            print("[EYAL]: mm_functions_list", mm_functions_list)
 
         detection_stats_dict = {}
         processed_model_endpoints_dict = {}
@@ -1216,7 +1216,9 @@ class MonitoringDeployment:
                     mm_constants.ResultStatusApp.detected.value,
                     mm_constants.ResultStatusApp.potential_detection.value,
                 ],
+                application_names=names,
             )
+            print("[EYAL]: detection_stats_dict", detection_stats_dict)
 
         if include_processed_model_endpoints:
             # enrich func stats with processed model endpoints
@@ -1226,6 +1228,7 @@ class MonitoringDeployment:
                 end=end,
                 application_names=names,
             )
+            print("[EYAL]: process_model_endpoints", processed_model_endpoints_dict)
 
         for function in mm_functions_list:
             function_summary = mlrun.common.schemas.model_monitoring.FunctionSummary.from_function_dict(
@@ -1237,14 +1240,14 @@ class MonitoringDeployment:
                 function_summary.stats = {
                     mm_constants.ResultStatusApp.detected.name: detection_stats_dict.get(
                         (
-                            function_summary.name,
+                            function_summary.name.lower(),
                             mm_constants.ResultStatusApp.detected.value,
                         ),
                         0,
                     ),
                     mm_constants.ResultStatusApp.potential_detection.name: detection_stats_dict.get(
                         (
-                            function_summary.name,
+                            function_summary.name.lower(),
                             mm_constants.ResultStatusApp.potential_detection.value,
                         ),
                         0,

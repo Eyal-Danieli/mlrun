@@ -1259,6 +1259,8 @@ class V3IOTSDBConnector(TSDBConnector):
             else:
                 filter_query = app_filter_query
 
+        print("[EYAL]: filter query: ", filter_query)
+
         df = self._get_records(
             table=mm_schemas.V3IOTSDBTables.APP_RESULTS,
             start=start,
@@ -1269,6 +1271,8 @@ class V3IOTSDBConnector(TSDBConnector):
             ],
             filter_query=filter_query,
         )
+
+        print("[EYAL]: df: ", df)
 
         # filter result status
         if result_status_list and not df.empty:
