@@ -1369,6 +1369,7 @@ class ModelRunner(storey.ParallelExecution):
     ):
         super().__init__(*args, **kwargs)
         self.model_selector = model_selector or ModelSelector()
+        print("[EYAL]: model selector is", self.model_selector)
         self.context = context
 
     def preprocess_event(self, event):
@@ -1852,6 +1853,7 @@ class ModelRunnerStep(MonitoredStep):
             )
 
     def init_object(self, context, namespace, mode="sync", reset=False, **extra_kwargs):
+
         self.context = context
         if not self._is_local_function(context):
             # skip init of non local functions
@@ -1859,6 +1861,8 @@ class ModelRunnerStep(MonitoredStep):
         model_selector, model_selector_params = self.class_args.get(
             "model_selector", (None, None)
         )
+        print("[EYAL]: model selector", model_selector)
+        print("[EYAL]: model selector params", model_selector_params)
         execution_mechanism_by_model_name = self.class_args.get(
             schemas.ModelRunnerStepData.MODEL_TO_EXECUTION_MECHANISM
         )

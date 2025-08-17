@@ -1192,7 +1192,14 @@ class MonitoringDeployment:
         if not mm_functions_list:
             logger.info("No model monitoring applications found")
             return []
+
+        for func in mm_functions_list:
+            print("[EYAL]: func name: ", func["metadata"]["name"])
+
         if names:
+            # generate lower names list
+            names = [name.lower() for name in names]
+            print("[EYAL]: names: ", names)
             mm_functions_list = [
                 fn for fn in mm_functions_list if fn["metadata"]["name"] in names
             ]
