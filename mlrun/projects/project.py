@@ -3944,7 +3944,7 @@ class MlrunProject(ModelObj):
         start: Optional[datetime.datetime] = None,
         end: Optional[datetime.datetime] = None,
         top_level: bool = False,
-        modes: Optional[list[mlrun.common.schemas.EndpointMode]] = None,
+        modes: Optional[Union[mm_constants.EndpointMode, list[mm_constants.EndpointMode]]] = None,
         uids: Optional[list[str]] = None,
         latest_only: bool = False,
         tsdb_metrics: bool = False,
@@ -3993,6 +3993,7 @@ class MlrunProject(ModelObj):
 
         :returns: Returns a list of `ModelEndpoint` objects.
         """
+        print("[EYAL]: modes on client side: ", modes)
         db = mlrun.db.get_run_db(secrets=self._secrets)
         return db.list_model_endpoints(
             project=self.name,

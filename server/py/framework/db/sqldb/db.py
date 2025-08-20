@@ -5817,10 +5817,11 @@ class SQLDB(DBInterface):
             query = query.filter(
                 ModelEndpoint.endpoint_type.in_(EndpointType.top_level_list())
             )
+        print("[EYAL]: modes ", modes)
         if modes is not None:
             batch_legacy = EndpointMode.BATCH_LEGACY in modes
             real_time = EndpointMode.REAL_TIME in modes
-
+            print("[EYAL]: modes", modes, "batch_legacy", batch_legacy, "real_time", real_time)
             if batch_legacy and real_time:
                 query = query.filter(
                     or_(

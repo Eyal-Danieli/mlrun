@@ -280,6 +280,8 @@ async def list_model_endpoints(
         auth_info=auth_info,
     )
 
+    print("[EYAL]: modes in the api: ", modes)
+
     endpoints = await services.api.crud.ModelEndpoints().list_model_endpoints(
         project=project,
         names=names,
