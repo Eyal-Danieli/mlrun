@@ -3803,6 +3803,7 @@ class HTTPRunDB(RunDBInterface):
             names = [names]
         if isinstance(modes, mm_constants.EndpointMode):
             modes = [modes]
+        print("[EYAL]: going to pass modes: ", modes)
         response = self.api_call(
             method=mlrun.common.types.HTTPMethod.GET,
             path=path,
@@ -3818,7 +3819,7 @@ class HTTPRunDB(RunDBInterface):
                 "tsdb-metrics": tsdb_metrics,
                 "metric": metric_list,
                 "top-level": top_level,
-                "modes": modes,
+                "mode": modes,
                 "uid": uids,
                 "latest-only": latest_only,
             },

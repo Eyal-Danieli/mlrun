@@ -241,7 +241,7 @@ async def list_model_endpoints(
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
     top_level: bool = Query(False, alias="top-level"),
-    modes: Optional[list[mm_constants.EndpointMode]] = None,
+    modes: Optional[list[mm_constants.EndpointMode]] = Query(None, alias="mode"),
     tsdb_metrics: bool = Query(True, alias="tsdb-metrics"),
     metric_list: Optional[list[str]] = Query(None, alias="metric"),
     uids: list[str] = Query(None, alias="uid"),
