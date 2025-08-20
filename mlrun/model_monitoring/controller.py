@@ -254,6 +254,7 @@ class _BatchWindowGenerator(AbstractContextManager):
                 mlrun.mlconf.model_endpoint_monitoring.parquet_batching_timeout_secs,
             )
             if not not_old_batch_endpoint:
+                # Processing the legacy batch endpoint, which does not have a stream.
                 # If the endpoint does not have a stream, `last_updated` should be
                 # the minimum between the current time and the last updated time.
                 # This compensates for the bumping mechanism - see

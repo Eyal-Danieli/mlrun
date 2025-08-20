@@ -5830,6 +5830,7 @@ class SQLDB(DBInterface):
                     )
                 )
             elif batch_legacy:
+                print("[EYAL]: now in batch legacy")
                 query = query.filter(
                     or_(
                         ModelEndpoint.mode.in_(modes),
@@ -5840,6 +5841,7 @@ class SQLDB(DBInterface):
                     )
                 )
             elif real_time:
+                print("[EYAL]: now in real time")
                 query = query.filter(
                     or_(
                         ModelEndpoint.mode.in_(modes),
