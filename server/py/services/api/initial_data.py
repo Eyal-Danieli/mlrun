@@ -605,6 +605,44 @@ def _migrate_artifact_labels(
     return labels
 
 
+def _migrate_monitoring_functions_labels(db: framework.db.sqldb.db.SQLDB, db_session):
+    """
+    Migrate and update labels for model monitoring infra functions.
+    Adds/updates the label defined by ModelMonitoringInfraLabel to all functions
+    whose name matches MonitoringFunctionNames.
+    """
+
+    # Query all functions with infra names
+    print("[EYAL]: now going to migrate monitoring functions labels")
+    functions = (db_session.query(framework.db.sqldb.models.Function).filter
+                 (framework.db.sqldb.models.Function.name.in_
+                  (mlrun.common.schemas.model_monitoring.MonitoringFunctionNames.list())).all())
+
+    print("[EYAL]: functions found for monitoring labels migration:", functions)
+    print("[EYAL]: functions type: ", type(functions))
+
+    if not functions:
+        return []
+
+    new_labels = []
+
+    # new_label = f"{mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.KEY}={mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.VAL}"
+    for function in functions:
+        # Update or add the infra label
+        new_label = framework.db.sqldb.models.Function.Label(
+            # name=mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.KEY,
+            name="testLABEL",
+            value=mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.VAL,
+            parent=function.id,
+        )
+        new_labels.append(new_label)
+        print("[EYAL]: adding new label to function:", function.name, "label:", new_label)
+    if new_labels:
+        db_session.add_all(new_labels)
+    print("[EYAL]: going to commit new labels for monitoring functions:", new_labels)
+    db._commit(db_session, new_labels)
+
+
 def _migrate_artifact_tags(
     db_session: sqlalchemy.orm.Session,
     old_id_to_artifact: dict[typing.Any, framework.db.sqldb.models.ArtifactV2],
