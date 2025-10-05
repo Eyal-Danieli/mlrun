@@ -2621,6 +2621,8 @@ class SQLDB(DBInterface):
         tag, computed_tag = self._compute_function_tag(tag, hash_key)
 
         obj, uid = self._get_function_db_object(session, name, project, tag, hash_key)
+        print("[EYAL]: now in _get_function, obj: ", obj)
+        print("[EYAL]: now in _get_function, obj struct: ", obj.struct)
         tag_function_uid = None if not tag and hash_key else uid
         if obj:
             function = obj.struct
@@ -2632,7 +2634,7 @@ class SQLDB(DBInterface):
                 function["metadata"]["uid"] = tag_function_uid
             function.setdefault("status", {})
             function["status"]["state"] = obj.state
-
+            print("[EYAL]: now in _get_function, function: ", function)
             return mlrun.common.formatters.FunctionFormat.format_obj(function, format_)
         else:
             function_uri = generate_object_uri(project, name, tag, hash_key)
