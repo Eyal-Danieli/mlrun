@@ -303,6 +303,8 @@ def _perform_data_migrations(db_session: sqlalchemy.orm.Session):
                 _perform_version_8_data_migrations(db, db_session)
             if current_data_version < 9:
                 _perform_version_9_data_migrations(db, db_session)
+            if current_data_version < 10:
+                _perform_version_10_data_migrations(db, db_session)
 
             db.create_data_version(db_session, str(latest_data_version))
 
@@ -738,6 +740,82 @@ def _mark_best_iteration_artifacts(
 
     db._commit(db_session, artifacts_to_commit)
 
+def _migrate_monitoring_functions_labels(db: framework.db.sqldb.db.SQLDB, db_session):
+    """
+    Update labels for model monitoring infra functions.
+    """
+
+    # Query all functions with infra names
+    print("[EYAL]: now going to migrate monitoring functions labels")
+    functions = (db_session.query(framework.db.sqldb.models.Function).filter
+                 (framework.db.sqldb.models.Function.name.in_
+                  (mlrun.common.schemas.model_monitoring.MonitoringFunctionNames.list())).all())
+
+    print("[EYAL]: functions found for monitoring labels migration:", functions)
+    print("[EYAL]: functions type: ", type(functions))
+
+    if not functions:
+        return []
+
+    new_labels = []
+
+
+    # new_label = f"{mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.KEY}={mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.VAL}"
+    for function in functions:
+        print("[EYAL]: processing function:", function)
+        print("[EYAL]: processing function struct metadata:", function.struct.get("metadata"))
+        # print("[EYAL]: processing function struct:", function.struct)
+        # print("[EYAL]: function metadata:", function.metadata)
+
+        # Update or add the infra label
+        new_label = framework.db.sqldb.models.Function.Label(
+            # name=mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.KEY,
+            name="newlabel9",
+            value="newvalue9",
+            parent=function.id,
+        )
+        new_labels.append(new_label)
+    #
+    #     print("[EYAL]: adding new label to function:", function.name, "label:", new_label)
+    #     print("[EYAL]: now let's update the functino object as well")
+    #     framework.db.sqldb.helpers.update_labels(function, {
+    #         "newlabel8": "newvalue8"
+    #     })
+        function_metadata_dict = function.struct.get("metadata", {})
+        print("[EYAL]: function metadata before update labels:", function_metadata_dict)
+        # now let's add a new label to the function metadata as well
+        functino_metadata_labels_dict = function_metadata_dict.get("labels", {})
+        functino_metadata_labels_dict["newlabel9"] = "newvalue9"
+        function_metadata_dict["labels"] = functino_metadata_labels_dict
+
+        db.update_function(session=db_session,
+            name=function.struct.get("metadata").get("name"),
+            tag=function.struct.get("metadata").get("tag"),
+            hash_key=function.struct.get("metadata").get("hash"),
+            updates={"metadata": function_metadata_dict},
+            project=function.struct.get("metadata").get("project"))
+
+        print("[EYAL]: function metadata after update labels:", function.struct.get("metadata"))
+
+        print("[EYAL]: function after update:", function)
+
+    if new_labels:
+        db_session.add_all(new_labels)
+        print("[EYAL]: going to commit new LABELS for monitoring functions:", new_labels)
+        db._commit(db_session, new_labels)
+    #
+    #     # db_session.add_all(new_labels)
+    #     # db._commit(db_session, new_labels)
+    #
+    #     db_session.add_all(new_functions)
+    #     # db_session.add_all(new_labels)
+    #     print("[EYAL]: going to commit new functions for monitoring functions:", new_functions)
+    #     db._commit(db_session, new_functions)
+    #     # print("[EYAL]: going to commit new LABELS for monitoring functions:", new_labels)
+    #     # db_session.add_all(new_labels)
+    #     # db._commit(db_session, new_labels)
+    #     # print("[EYAL]: going to commit new labels for monitoring functions:", new_functions)
+    #     # db._commit(db_session, new_labels)
 
 def _get_migration_state():
     """
