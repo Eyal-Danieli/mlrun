@@ -154,9 +154,9 @@ from .model_monitoring import (
     ModelEndpointSchema,
     ModelEndpointSpec,
     ModelEndpointStatus,
+    ModelMonitoringInfraLabel,
     ModelMonitoringMode,
     MonitoringFunctionNames,
-    ModelMonitoringInfraLabel,
     TSDBTarget,
     V3IOTSDBTables,
 )

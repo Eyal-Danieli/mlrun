@@ -611,41 +611,43 @@ def _migrate_monitoring_functions_labels(db: framework.db.sqldb.db.SQLDB, db_ses
     """
     Update labels for model monitoring infra functions.
     """
-
-    print("[EYAL]: now going to migrate monitoring functions labels - V2")
-    mm_infra_function_names = mlrun.common.schemas.model_monitoring.MonitoringFunctionNames.list()
+    mm_infra_function_names = (
+        mlrun.common.schemas.model_monitoring.MonitoringFunctionNames.list()
+    )
 
     def filter_infra_func():
-        print("[EYAL]: now in filter function infra func")
-
         return framework.db.sqldb.models.Function.name.in_(mm_infra_function_names)
 
     def add_infra_label(record):
-        print("[EYAL]: now going to update infra label V2")
         function_dict = record.struct
-        function_metadata_labels_dict = function_dict.get("metadata", {}).get("labels", {})
-        # now let's add a new label to the function metadata as well
-        function_metadata_labels_dict[mlrun.common.schemas.ModelMonitoringInfraLabel.VAL] = mlrun.common.schemas.ModelMonitoringInfraLabel.KEY
+        function_metadata_labels_dict = function_dict.get("metadata", {}).get(
+            "labels", {}
+        )
+        # Add a new label to the function metadata as well
+        function_metadata_labels_dict[
+            mlrun.common.schemas.ModelMonitoringInfraLabel.KEY
+        ] = mlrun.common.schemas.ModelMonitoringInfraLabel.VAL
         function_dict["metadata"]["labels"] = function_metadata_labels_dict
-        print("[EYAL]: now going to update infra label V2, function metadata after update labels:",
-              function_dict.get("metadata"))
+
         record.struct = function_dict
 
         new_label = framework.db.sqldb.models.Function.Label(
-            name=mlrun.common.schemas.ModelMonitoringInfraLabel.VAL,
-            value=mlrun.common.schemas.ModelMonitoringInfraLabel.KEY,
+            name=mlrun.common.schemas.ModelMonitoringInfraLabel.KEY,
+            value=mlrun.common.schemas.ModelMonitoringInfraLabel.VAL,
             parent=record.id,
         )
 
         return record, new_label
 
-    return _migrate_data(db=db,
-                         db_session=db_session,
-                         model=framework.db.sqldb.models.Function,
-                         filter_func=filter_infra_func,
-                         handle_field_record_func=add_infra_label,
-                         max_iterations=1
-                         )
+    return _migrate_data(
+        db=db,
+        db_session=db_session,
+        model=framework.db.sqldb.models.Function,
+        filter_func=filter_infra_func,
+        handle_field_record_func=add_infra_label,
+        max_iterations=1,
+    )
+
 
 def _migrate_artifact_tags(
     db_session: sqlalchemy.orm.Session,
@@ -823,10 +825,12 @@ def _perform_version_9_data_migrations(
     _add_producer_uri_to_artifact(db, db_session)
     _ensure_latest_tag_for_artifacts(db_session)
 
+
 def _perform_version_10_data_migrations(
     db: framework.db.sqldb.db.SQLDB, db_session: sqlalchemy.orm.Session
 ):
     _migrate_monitoring_functions_labels(db, db_session)
+
 
 def _ensure_function_kind_and_state(
     db: framework.db.sqldb.db.SQLDB,
