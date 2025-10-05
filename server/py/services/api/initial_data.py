@@ -210,7 +210,7 @@ def _migrate_existing_data(
 data_version_prior_to_table_addition = 1
 
 # NOTE: Bump this number when adding a new data migration
-latest_data_version = 9
+latest_data_version = 10
 
 
 def update_default_configuration_data():
@@ -609,41 +609,43 @@ def _migrate_artifact_labels(
 
 def _migrate_monitoring_functions_labels(db: framework.db.sqldb.db.SQLDB, db_session):
     """
-    Migrate and update labels for model monitoring infra functions.
-    Adds/updates the label defined by ModelMonitoringInfraLabel to all functions
-    whose name matches MonitoringFunctionNames.
+    Update labels for model monitoring infra functions.
     """
 
-    # Query all functions with infra names
-    print("[EYAL]: now going to migrate monitoring functions labels")
-    functions = (db_session.query(framework.db.sqldb.models.Function).filter
-                 (framework.db.sqldb.models.Function.name.in_
-                  (mlrun.common.schemas.model_monitoring.MonitoringFunctionNames.list())).all())
+    print("[EYAL]: now going to migrate monitoring functions labels - V2")
+    mm_infra_function_names = mlrun.common.schemas.model_monitoring.MonitoringFunctionNames.list()
 
-    print("[EYAL]: functions found for monitoring labels migration:", functions)
-    print("[EYAL]: functions type: ", type(functions))
+    def filter_infra_func():
+        print("[EYAL]: now in filter function infra func")
 
-    if not functions:
-        return []
+        return framework.db.sqldb.models.Function.name.in_(mm_infra_function_names)
 
-    new_labels = []
+    def add_infra_label(record):
+        print("[EYAL]: now going to update infra label V2")
+        function_dict = record.struct
+        function_metadata_labels_dict = function_dict.get("metadata", {}).get("labels", {})
+        # now let's add a new label to the function metadata as well
+        function_metadata_labels_dict[mlrun.common.schemas.ModelMonitoringInfraLabel.VAL] = mlrun.common.schemas.ModelMonitoringInfraLabel.KEY
+        function_dict["metadata"]["labels"] = function_metadata_labels_dict
+        print("[EYAL]: now going to update infra label V2, function metadata after update labels:",
+              function_dict.get("metadata"))
+        record.struct = function_dict
 
-    # new_label = f"{mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.KEY}={mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.VAL}"
-    for function in functions:
-        # Update or add the infra label
         new_label = framework.db.sqldb.models.Function.Label(
-            # name=mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.KEY,
-            name="testLABEL",
-            value=mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.VAL,
-            parent=function.id,
+            name=mlrun.common.schemas.ModelMonitoringInfraLabel.VAL,
+            value=mlrun.common.schemas.ModelMonitoringInfraLabel.KEY,
+            parent=record.id,
         )
-        new_labels.append(new_label)
-        print("[EYAL]: adding new label to function:", function.name, "label:", new_label)
-    if new_labels:
-        db_session.add_all(new_labels)
-    print("[EYAL]: going to commit new labels for monitoring functions:", new_labels)
-    db._commit(db_session, new_labels)
 
+        return record, new_label
+
+    return _migrate_data(db=db,
+                         db_session=db_session,
+                         model=framework.db.sqldb.models.Function,
+                         filter_func=filter_infra_func,
+                         handle_field_record_func=add_infra_label,
+                         max_iterations=1
+                         )
 
 def _migrate_artifact_tags(
     db_session: sqlalchemy.orm.Session,
@@ -740,82 +742,6 @@ def _mark_best_iteration_artifacts(
 
     db._commit(db_session, artifacts_to_commit)
 
-def _migrate_monitoring_functions_labels(db: framework.db.sqldb.db.SQLDB, db_session):
-    """
-    Update labels for model monitoring infra functions.
-    """
-
-    # Query all functions with infra names
-    print("[EYAL]: now going to migrate monitoring functions labels")
-    functions = (db_session.query(framework.db.sqldb.models.Function).filter
-                 (framework.db.sqldb.models.Function.name.in_
-                  (mlrun.common.schemas.model_monitoring.MonitoringFunctionNames.list())).all())
-
-    print("[EYAL]: functions found for monitoring labels migration:", functions)
-    print("[EYAL]: functions type: ", type(functions))
-
-    if not functions:
-        return []
-
-    new_labels = []
-
-
-    # new_label = f"{mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.KEY}={mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.VAL}"
-    for function in functions:
-        print("[EYAL]: processing function:", function)
-        print("[EYAL]: processing function struct metadata:", function.struct.get("metadata"))
-        # print("[EYAL]: processing function struct:", function.struct)
-        # print("[EYAL]: function metadata:", function.metadata)
-
-        # Update or add the infra label
-        new_label = framework.db.sqldb.models.Function.Label(
-            # name=mlrun.common.schemas.model_monitoring.ModelMonitoringInfraLabel.KEY,
-            name="newlabel9",
-            value="newvalue9",
-            parent=function.id,
-        )
-        new_labels.append(new_label)
-    #
-    #     print("[EYAL]: adding new label to function:", function.name, "label:", new_label)
-    #     print("[EYAL]: now let's update the functino object as well")
-    #     framework.db.sqldb.helpers.update_labels(function, {
-    #         "newlabel8": "newvalue8"
-    #     })
-        function_metadata_dict = function.struct.get("metadata", {})
-        print("[EYAL]: function metadata before update labels:", function_metadata_dict)
-        # now let's add a new label to the function metadata as well
-        functino_metadata_labels_dict = function_metadata_dict.get("labels", {})
-        functino_metadata_labels_dict["newlabel9"] = "newvalue9"
-        function_metadata_dict["labels"] = functino_metadata_labels_dict
-
-        db.update_function(session=db_session,
-            name=function.struct.get("metadata").get("name"),
-            tag=function.struct.get("metadata").get("tag"),
-            hash_key=function.struct.get("metadata").get("hash"),
-            updates={"metadata": function_metadata_dict},
-            project=function.struct.get("metadata").get("project"))
-
-        print("[EYAL]: function metadata after update labels:", function.struct.get("metadata"))
-
-        print("[EYAL]: function after update:", function)
-
-    if new_labels:
-        db_session.add_all(new_labels)
-        print("[EYAL]: going to commit new LABELS for monitoring functions:", new_labels)
-        db._commit(db_session, new_labels)
-    #
-    #     # db_session.add_all(new_labels)
-    #     # db._commit(db_session, new_labels)
-    #
-    #     db_session.add_all(new_functions)
-    #     # db_session.add_all(new_labels)
-    #     print("[EYAL]: going to commit new functions for monitoring functions:", new_functions)
-    #     db._commit(db_session, new_functions)
-    #     # print("[EYAL]: going to commit new LABELS for monitoring functions:", new_labels)
-    #     # db_session.add_all(new_labels)
-    #     # db._commit(db_session, new_labels)
-    #     # print("[EYAL]: going to commit new labels for monitoring functions:", new_functions)
-    #     # db._commit(db_session, new_labels)
 
 def _get_migration_state():
     """
@@ -897,6 +823,10 @@ def _perform_version_9_data_migrations(
     _add_producer_uri_to_artifact(db, db_session)
     _ensure_latest_tag_for_artifacts(db_session)
 
+def _perform_version_10_data_migrations(
+    db: framework.db.sqldb.db.SQLDB, db_session: sqlalchemy.orm.Session
+):
+    _migrate_monitoring_functions_labels(db, db_session)
 
 def _ensure_function_kind_and_state(
     db: framework.db.sqldb.db.SQLDB,
@@ -963,7 +893,9 @@ def _migrate_data(
     filter_func,
     handle_field_record_func,
     chunk_size: int = 500,
+    max_iterations: typing.Optional[int] = None,
 ):
+    iteration = 0
     # Query for records that need migration
     records = db._query(db_session, model).filter(filter_func).limit(chunk_size).all()
 
@@ -976,7 +908,13 @@ def _migrate_data(
     )
 
     while records:
-        to_commit = [handle_field_record_func(record) for record in records]
+        to_commit = []
+        for record in records:
+            result = handle_field_record_func(record)
+            if isinstance(result, (list, tuple, set)):
+                to_commit.extend(result)
+            elif result is not None:
+                to_commit.append(result)
 
         # Commit if there are records to migrate
         if to_commit:
@@ -987,6 +925,11 @@ def _migrate_data(
             )
             db_session.add_all(to_commit)
             db._commit(db_session, to_commit)
+
+        iteration += 1
+        if max_iterations is not None and iteration >= max_iterations:
+            mlrun.utils.logger.info("Reached max iterations", {model.__name__})
+            break
 
         # Fetch next batch of records to migrate (if any)
         records = (
