@@ -1360,48 +1360,24 @@ class V3IOTSDBConnector(TSDBConnector):
         if isinstance(raw_frames, list) and len(raw_frames) == 0:
             return {}
 
-        # Collect data from RawFrame objects
-        application_names = []
-        result_statuses = []
-        result_values = []
+        # Count occurrences by (application_name, result_status) from RawFrame objects
+        count_dict = {}
 
         for frame in raw_frames:
             # Extract column data from each RawFrame
-            app_names = frame.column_data(mm_schemas.ApplicationEvent.APPLICATION_NAME)
+            app_name = frame.column_data(mm_schemas.ApplicationEvent.APPLICATION_NAME)[0]
             statuses = frame.column_data(mm_schemas.ResultData.RESULT_STATUS)
-            values = frame.column_data(mm_schemas.ResultData.RESULT_VALUE)
 
-            # Add to our lists
-            application_names.extend(app_names)
-            result_statuses.extend(statuses)
-            result_values.extend(values)
 
-        # Filter by result status if specified
-        if result_status_list:
-            filtered_data = [
-                (app_name.lower(), status, value)
-                for app_name, status, value in zip(
-                    application_names, result_statuses, result_values
-                )
-                if status in result_status_list
-            ]
-        else:
-            filtered_data = [
-                (app_name.lower(), status, value)
-                for app_name, status, value in zip(
-                    application_names, result_statuses, result_values
-                )
-            ]
+            for status in statuses:
+                # Filter by result status if specified
+                if result_status_list and status not in result_status_list:
+                    continue
 
-        if not filtered_data:
-            return {}
-
-        # Count occurrences by (application_name, result_status)
-        count_dict = {}
-        for app_name, status, _ in filtered_data:
-            key = (app_name, status)
-            count_dict[key] = count_dict.get(key, 0) + 1
-
+                # Convert application name to lower case
+                key = (app_name.lower(), status)
+                count_dict[key] = count_dict.get(key, 0) + 1
+        print("[EYAL]: count_dict =", count_dict)
         return count_dict
 
 
@@ -1611,24 +1587,18 @@ class V3IOTSDBConnector(TSDBConnector):
         data_points = []
         for frame in raw_frames:
             endpoint_id = frame.column_data(EventFieldType.ENDPOINT_ID)[0]
-            result_status = frame.column_data(mm_schemas.ResultData.RESULT_STATUS)[0]
+            result_statuses = frame.column_data(mm_schemas.ResultData.RESULT_STATUS)
             # we need to get the actual index column data
-            timestamp = frame.indices()[0].times[0]
+            timestamps = frame.indices()[0].times
             # V3IO TSDB returns timestamps in nanoseconds
-            timestamp_dt = pd.Timestamp(timestamp, unit='ns', tzinfo=timezone.utc).to_pydatetime()
 
             # Combine data from this frame
-            # for i, (endpoint_id, status, timestamp) in enumerate(zip(endpoint_ids, result_statuses, timestamps)):
-                # # Strip whitespace from endpoint_id
-                # endpoint_id = str(endpoint_id).strip()
-                # Convert Unix nanosecond timestamp to datetime
-            # if isinstance(timestamp, (int, float)):
-            #
-            # else:
-            #     timestamp_dt = timestamp
+            for i, (status, timestamp) in enumerate(zip(result_statuses, timestamps)):
+                timestamp_dt = pd.Timestamp(timestamp, unit='ns', tzinfo=timezone.utc).to_pydatetime()
+
             # Filter by time window
-            if start <= timestamp_dt < end:
-                data_points.append((endpoint_id, timestamp_dt, result_status))
+                if start <= timestamp_dt < end:
+                    data_points.append((endpoint_id, timestamp_dt, status))
 
         if not data_points:
             return []
