@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from io import StringIO
 from typing import Callable, Literal, Optional, Union
 
@@ -1607,18 +1607,31 @@ class V3IOTSDBConnector(TSDBConnector):
             try:
                 endpoint_ids = frame.column_data(EventFieldType.ENDPOINT_ID)
                 result_statuses = frame.column_data(mm_schemas.ResultData.RESULT_STATUS)
-                # Get timestamps from frame indices
-                timestamps = frame.indices()
+                # Get timestamps - indices() returns a list of index names,
+                # we need to get the actual index column data
+                index_names = frame.indices()
+                if index_names:
+                    # For TSDB, the first index is typically the timestamp
+                    timestamps = index_names[0].times
+                else:
+                    # If no index names, skip this frame
+                    continue
             except Exception:
                 continue
 
             # Combine data from this frame
-            for endpoint_id, status, timestamp in zip(endpoint_ids, result_statuses, timestamps):
+            for i, (endpoint_id, status, timestamp) in enumerate(zip(endpoint_ids, result_statuses, timestamps)):
                 # Strip whitespace from endpoint_id
                 endpoint_id = str(endpoint_id).strip()
+                # Convert Unix nanosecond timestamp to datetime
+                if isinstance(timestamp, (int, float)):
+                    # V3IO TSDB returns timestamps in nanoseconds
+                    timestamp_dt = pd.Timestamp(timestamp, unit='ns', tzinfo=timezone.utc).to_pydatetime()
+                else:
+                    timestamp_dt = timestamp
                 # Filter by time window
-                if start <= timestamp < end:
-                    data_points.append((endpoint_id, timestamp, status))
+                if start <= timestamp_dt < end:
+                    data_points.append((endpoint_id, timestamp_dt, status))
 
         if not data_points:
             return []
