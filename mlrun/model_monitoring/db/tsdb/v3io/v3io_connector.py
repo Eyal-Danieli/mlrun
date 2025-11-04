@@ -1365,9 +1365,10 @@ class V3IOTSDBConnector(TSDBConnector):
 
         for frame in raw_frames:
             # Extract column data from each RawFrame
-            app_name = frame.column_data(mm_schemas.ApplicationEvent.APPLICATION_NAME)[0]
+            app_name = frame.column_data(mm_schemas.ApplicationEvent.APPLICATION_NAME)[
+                0
+            ]
             statuses = frame.column_data(mm_schemas.ResultData.RESULT_STATUS)
-
 
             for status in statuses:
                 # Filter by result status if specified
@@ -1379,7 +1380,6 @@ class V3IOTSDBConnector(TSDBConnector):
                 count_dict[key] = count_dict.get(key, 0) + 1
         print("[EYAL]: count_dict =", count_dict)
         return count_dict
-
 
     def count_processed_model_endpoints(
         self,
@@ -1544,7 +1544,9 @@ class V3IOTSDBConnector(TSDBConnector):
             columns=[mm_schemas.ResultData.RESULT_STATUS],
             get_raw=True,
         )
-        aggregated_data = self._aggregate_raw_drift_data(raw_frames, start, end, interval)
+        aggregated_data = self._aggregate_raw_drift_data(
+            raw_frames, start, end, interval
+        )
         if not aggregated_data:
             return mm_schemas.ModelEndpointDriftValues(values=[])
 
@@ -1594,9 +1596,11 @@ class V3IOTSDBConnector(TSDBConnector):
 
             # Combine data from this frame
             for i, (status, timestamp) in enumerate(zip(result_statuses, timestamps)):
-                timestamp_dt = pd.Timestamp(timestamp, unit='ns', tzinfo=timezone.utc).to_pydatetime()
+                timestamp_dt = pd.Timestamp(
+                    timestamp, unit="ns", tzinfo=timezone.utc
+                ).to_pydatetime()
 
-            # Filter by time window
+                # Filter by time window
                 if start <= timestamp_dt < end:
                     data_points.append((endpoint_id, timestamp_dt, status))
 
@@ -1629,7 +1633,7 @@ class V3IOTSDBConnector(TSDBConnector):
 
     @staticmethod
     def _convert_drift_data_to_values(
-        aggregated_data: list[tuple[str, datetime, float]]
+        aggregated_data: list[tuple[str, datetime, float]],
     ) -> mm_schemas.ModelEndpointDriftValues:
         """
         Convert aggregated drift data to ModelEndpointDriftValues format.
@@ -1651,7 +1655,10 @@ class V3IOTSDBConnector(TSDBConnector):
         timestamp_counts = {}
         for (timestamp, status), count in timestamp_status_counts.items():
             if timestamp not in timestamp_counts:
-                timestamp_counts[timestamp] = {"count_suspected": 0, "count_detected": 0}
+                timestamp_counts[timestamp] = {
+                    "count_suspected": 0,
+                    "count_detected": 0,
+                }
 
             if status == suspected_val:
                 timestamp_counts[timestamp]["count_suspected"] = count
