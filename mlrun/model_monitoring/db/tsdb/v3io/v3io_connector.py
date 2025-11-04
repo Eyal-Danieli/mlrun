@@ -1593,7 +1593,13 @@ class V3IOTSDBConnector(TSDBConnector):
     ) -> list[tuple[str, datetime, float]]:
         """
         Aggregate raw drift data from RawFrame objects.
-        Returns list of tuples: (endpoint_id, timestamp, max_result_status)
+
+        :param raw_frames: List of RawFrame objects containing drift data.
+        :param start:      Start datetime for filtering data.
+        :param end:        End datetime for filtering data.
+        :param interval:   Time interval string (e.g., '5min') for aggregation
+
+        :returns: list of tuples: (endpoint_id, timestamp, max_result_status)
         """
         if not raw_frames:
             return []
@@ -1604,34 +1610,25 @@ class V3IOTSDBConnector(TSDBConnector):
         # Collect all data points from RawFrame objects
         data_points = []
         for frame in raw_frames:
-            try:
-                endpoint_ids = frame.column_data(EventFieldType.ENDPOINT_ID)
-                result_statuses = frame.column_data(mm_schemas.ResultData.RESULT_STATUS)
-                # Get timestamps - indices() returns a list of index names,
-                # we need to get the actual index column data
-                index_names = frame.indices()
-                if index_names:
-                    # For TSDB, the first index is typically the timestamp
-                    timestamps = index_names[0].times
-                else:
-                    # If no index names, skip this frame
-                    continue
-            except Exception:
-                continue
+            endpoint_id = frame.column_data(EventFieldType.ENDPOINT_ID)[0]
+            result_status = frame.column_data(mm_schemas.ResultData.RESULT_STATUS)[0]
+            # we need to get the actual index column data
+            timestamp = frame.indices()[0].times[0]
+            # V3IO TSDB returns timestamps in nanoseconds
+            timestamp_dt = pd.Timestamp(timestamp, unit='ns', tzinfo=timezone.utc).to_pydatetime()
 
             # Combine data from this frame
-            for i, (endpoint_id, status, timestamp) in enumerate(zip(endpoint_ids, result_statuses, timestamps)):
-                # Strip whitespace from endpoint_id
-                endpoint_id = str(endpoint_id).strip()
+            # for i, (endpoint_id, status, timestamp) in enumerate(zip(endpoint_ids, result_statuses, timestamps)):
+                # # Strip whitespace from endpoint_id
+                # endpoint_id = str(endpoint_id).strip()
                 # Convert Unix nanosecond timestamp to datetime
-                if isinstance(timestamp, (int, float)):
-                    # V3IO TSDB returns timestamps in nanoseconds
-                    timestamp_dt = pd.Timestamp(timestamp, unit='ns', tzinfo=timezone.utc).to_pydatetime()
-                else:
-                    timestamp_dt = timestamp
-                # Filter by time window
-                if start <= timestamp_dt < end:
-                    data_points.append((endpoint_id, timestamp_dt, status))
+            # if isinstance(timestamp, (int, float)):
+            #
+            # else:
+            #     timestamp_dt = timestamp
+            # Filter by time window
+            if start <= timestamp_dt < end:
+                data_points.append((endpoint_id, timestamp_dt, result_status))
 
         if not data_points:
             return []
