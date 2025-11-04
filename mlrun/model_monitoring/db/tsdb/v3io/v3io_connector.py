@@ -1344,7 +1344,7 @@ class V3IOTSDBConnector(TSDBConnector):
             else:
                 filter_query = app_filter_query
 
-        df = self._get_records(
+        raw_frames = self._get_records(
             table=mm_schemas.V3IOTSDBTables.APP_RESULTS,
             start=start,
             end=end,
@@ -1353,39 +1353,57 @@ class V3IOTSDBConnector(TSDBConnector):
                 mm_schemas.ResultData.RESULT_STATUS,
             ],
             filter_query=filter_query,
+            get_raw=True,
         )
 
-        # filter result status
-        if result_status_list and not df.empty:
-            df = df[df[mm_schemas.ResultData.RESULT_STATUS].isin(result_status_list)]
-
-        if df.empty:
+        # raw_frames should be a list when get_raw=True
+        if isinstance(raw_frames, list) and len(raw_frames) == 0:
             return {}
-        else:
-            # convert application name to lower case
-            df[mm_schemas.ApplicationEvent.APPLICATION_NAME] = df[
-                mm_schemas.ApplicationEvent.APPLICATION_NAME
-            ].str.lower()
 
-            df = (
-                df[
-                    [
-                        mm_schemas.ApplicationEvent.APPLICATION_NAME,
-                        mm_schemas.ResultData.RESULT_STATUS,
-                        mm_schemas.ResultData.RESULT_VALUE,
-                    ]
-                ]
-                .groupby(
-                    [
-                        mm_schemas.ApplicationEvent.APPLICATION_NAME,
-                        mm_schemas.ResultData.RESULT_STATUS,
-                    ],
-                    observed=True,
+        # Collect data from RawFrame objects
+        application_names = []
+        result_statuses = []
+        result_values = []
+
+        for frame in raw_frames:
+            # Extract column data from each RawFrame
+            app_names = frame.column_data(mm_schemas.ApplicationEvent.APPLICATION_NAME)
+            statuses = frame.column_data(mm_schemas.ResultData.RESULT_STATUS)
+            values = frame.column_data(mm_schemas.ResultData.RESULT_VALUE)
+
+            # Add to our lists
+            application_names.extend(app_names)
+            result_statuses.extend(statuses)
+            result_values.extend(values)
+
+        # Filter by result status if specified
+        if result_status_list:
+            filtered_data = [
+                (app_name.lower(), status, value)
+                for app_name, status, value in zip(
+                    application_names, result_statuses, result_values
                 )
-                .count()
-            )
+                if status in result_status_list
+            ]
+        else:
+            filtered_data = [
+                (app_name.lower(), status, value)
+                for app_name, status, value in zip(
+                    application_names, result_statuses, result_values
+                )
+            ]
 
-            return df[mm_schemas.ResultData.RESULT_VALUE].to_dict()
+        if not filtered_data:
+            return {}
+
+        # Count occurrences by (application_name, result_status)
+        count_dict = {}
+        for app_name, status, _ in filtered_data:
+            key = (app_name, status)
+            count_dict[key] = count_dict.get(key, 0) + 1
+
+        return count_dict
+
 
     def count_processed_model_endpoints(
         self,
@@ -1543,51 +1561,127 @@ class V3IOTSDBConnector(TSDBConnector):
     ) -> mm_schemas.ModelEndpointDriftValues:
         table = mm_schemas.V3IOTSDBTables.APP_RESULTS
         start, end, interval = self._prepare_aligned_start_end(start, end)
-        df = self._get_records(
+        raw_frames = self._get_records(
             table=table,
             start=start,
             end=end,
             columns=[mm_schemas.ResultData.RESULT_STATUS],
+            get_raw=True,
         )
-        df = self._aggregate_raw_drift_data(df, start, end, interval)
-        if df.empty:
+        aggregated_data = self._aggregate_raw_drift_data(raw_frames, start, end, interval)
+        if not aggregated_data:
             return mm_schemas.ModelEndpointDriftValues(values=[])
-        df = df[df[f"max({mm_schemas.ResultData.RESULT_STATUS})"] >= 1]
-        return self._df_to_drift_data(df)
+
+        # Filter to only include entries with max result_status >= 1
+        filtered_data = [
+            (endpoint_id, timestamp, max_status)
+            for endpoint_id, timestamp, max_status in aggregated_data
+            if max_status >= 1
+        ]
+
+        if not filtered_data:
+            return mm_schemas.ModelEndpointDriftValues(values=[])
+
+        return self._convert_drift_data_to_values(filtered_data)
 
     @staticmethod
     def _aggregate_raw_drift_data(
-        df: pd.DataFrame, start: datetime, end: datetime, interval: str
-    ) -> pd.DataFrame:
-        if df.empty:
-            return df
-        if not isinstance(df.index, pd.DatetimeIndex):
-            raise TypeError("Expected a DatetimeIndex on the DataFrame (time index).")
-        df[EventFieldType.ENDPOINT_ID] = (
-            df[EventFieldType.ENDPOINT_ID].astype("string").str.strip()
-        )  # remove extra data carried by the category dtype
-        window = df.loc[
-            (df.index >= start) & (df.index < end),
-            [mm_schemas.ResultData.RESULT_STATUS, EventFieldType.ENDPOINT_ID],
+        raw_frames: list[v3io_frames.client.RawFrame],
+        start: datetime,
+        end: datetime,
+        interval: str,
+    ) -> list[tuple[str, datetime, float]]:
+        """
+        Aggregate raw drift data from RawFrame objects.
+        Returns list of tuples: (endpoint_id, timestamp, max_result_status)
+        """
+        if not raw_frames:
+            return []
+
+        # Parse interval to get timedelta
+        interval_td = pd.Timedelta(interval)
+
+        # Collect all data points from RawFrame objects
+        data_points = []
+        for frame in raw_frames:
+            try:
+                endpoint_ids = frame.column_data(EventFieldType.ENDPOINT_ID)
+                result_statuses = frame.column_data(mm_schemas.ResultData.RESULT_STATUS)
+                # Get timestamps from frame indices
+                timestamps = frame.indices()
+            except Exception:
+                continue
+
+            # Combine data from this frame
+            for endpoint_id, status, timestamp in zip(endpoint_ids, result_statuses, timestamps):
+                # Strip whitespace from endpoint_id
+                endpoint_id = str(endpoint_id).strip()
+                # Filter by time window
+                if start <= timestamp < end:
+                    data_points.append((endpoint_id, timestamp, status))
+
+        if not data_points:
+            return []
+
+        # Group by endpoint_id and time intervals, then find max status
+        # Create time buckets aligned to start
+        grouped_data = {}
+        for endpoint_id, timestamp, status in data_points:
+            # Calculate which interval bucket this timestamp falls into
+            time_diff = timestamp - start
+            bucket_index = int(time_diff / interval_td)
+            bucket_start = start + (bucket_index * interval_td)
+
+            key = (endpoint_id, bucket_start)
+            if key not in grouped_data:
+                grouped_data[key] = status
+            else:
+                # Keep the maximum status value
+                grouped_data[key] = max(grouped_data[key], status)
+
+        # Convert to list of tuples
+        result = [
+            (endpoint_id, timestamp, max_status)
+            for (endpoint_id, timestamp), max_status in grouped_data.items()
         ]
-        out = (
-            window.groupby(
-                [
-                    EventFieldType.ENDPOINT_ID,
-                    pd.Grouper(
-                        freq=interval, origin=start, label="left", closed="left"
-                    ),
-                ]
-                # align to start, [start, end) intervals
-            )[mm_schemas.ResultData.RESULT_STATUS]
-            .max()
-            .reset_index()
-            .rename(
-                columns={
-                    mm_schemas.ResultData.RESULT_STATUS: f"max({mm_schemas.ResultData.RESULT_STATUS})"
-                }
-            )
-        )
-        return out.rename(
-            columns={"time": "_wstart"}
-        )  # rename datetime column to _wstart to align with the tdengine result
+
+        return result
+
+    @staticmethod
+    def _convert_drift_data_to_values(
+        aggregated_data: list[tuple[str, datetime, float]]
+    ) -> mm_schemas.ModelEndpointDriftValues:
+        """
+        Convert aggregated drift data to ModelEndpointDriftValues format.
+        Replicates the behavior of _df_to_drift_data but works with list data.
+
+        :param aggregated_data: List of tuples (endpoint_id, timestamp, max_result_status)
+        :return: ModelEndpointDriftValues with counts of suspected and detected per timestamp
+        """
+        suspected_val = mm_schemas.constants.ResultStatusApp.potential_detection.value
+        detected_val = mm_schemas.constants.ResultStatusApp.detected.value
+
+        # Group by timestamp and result status, then count occurrences
+        timestamp_status_counts = {}
+        for _, timestamp, max_status in aggregated_data:
+            key = (timestamp, max_status)
+            timestamp_status_counts[key] = timestamp_status_counts.get(key, 0) + 1
+
+        # Organize by timestamp with counts for suspected and detected
+        timestamp_counts = {}
+        for (timestamp, status), count in timestamp_status_counts.items():
+            if timestamp not in timestamp_counts:
+                timestamp_counts[timestamp] = {"count_suspected": 0, "count_detected": 0}
+
+            if status == suspected_val:
+                timestamp_counts[timestamp]["count_suspected"] = count
+            elif status == detected_val:
+                timestamp_counts[timestamp]["count_detected"] = count
+
+        # Convert to the expected format: list of (timestamp, count_suspected, count_detected)
+        values = [
+            (timestamp, counts["count_suspected"], counts["count_detected"])
+            for timestamp, counts in sorted(timestamp_counts.items())
+        ]
+
+        return mm_schemas.ModelEndpointDriftValues(values=values)
