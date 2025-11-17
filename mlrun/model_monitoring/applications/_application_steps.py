@@ -186,7 +186,7 @@ class _ApplicationErrorHandler(StepToDict):
             "Timestamp": event.timestamp,
         }
         logger.error("Error in application step", **error_data)
-
+        logger.info("[EYAL]: Generating event for application error in project", project=self.project)
         error_data["Error"] = event.error
 
         event_data = alert_objects.Event(
