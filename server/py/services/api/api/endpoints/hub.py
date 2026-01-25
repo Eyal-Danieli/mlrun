@@ -79,6 +79,7 @@ async def list_sources(
         framework.api.deps.authenticate_request
     ),
 ):
+    print("[EYAL]: Hi we are now in list_sources")
     await (
         framework.utils.auth.verifier.AuthVerifier().query_global_resource_permissions(
             mlrun.common.schemas.AuthorizationResourceTypes.hub_source,
