@@ -967,6 +967,9 @@ class FeatureSet(ModelObj):
                 "there are no offline targets for this feature set"
             )
         print("[EYAL]: now within to_dataframe, going to generate results")
+        print("[EYAL]: now within to_dataframe, going to generate results, start_time: ", start_time)
+        print("[EYAL]: now within to_dataframe, going to generate results, end_time: ", end_time)
+        print("[EYAL]: now within to_dataframe, going to generate results, df_module: ", df_module)
         result = target.as_df(
             columns=columns,
             df_module=df_module,
