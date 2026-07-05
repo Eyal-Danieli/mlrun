@@ -932,13 +932,16 @@ class FeatureSet(ModelObj):
                                     https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetDataset.html
         :return: DataFrame
         """
+        print("[EYAL]: now within to_dataframe")
         entities = list(self.spec.entities.keys())
         if columns:
             if self.spec.timestamp_key and self.spec.timestamp_key not in entities:
                 columns = [self.spec.timestamp_key] + columns
             columns = entities + columns
-
+        print("[EYAL]: now within to_dataframe, columns: ", columns)
+        print("[EYAL]: now within to_dataframe, entities: ", entities)
         if self.spec.passthrough:
+            print("[EYAL]: now within to_dataframe, passthrough args")
             if not self.spec.source:
                 raise mlrun.errors.MLRunNotFoundError(
                     "passthrough feature set {self.metadata.name} with no source"
@@ -955,12 +958,15 @@ class FeatureSet(ModelObj):
             if not isinstance(df, pd.DataFrame):
                 df = pd.concat(df)
             return df
-
+        print("[EYAL]: now within to_dataframe, going to get target")
         target = get_offline_target(self, name=target_name)
+        print("[EYAL]: now within to_dataframe, target_name: ", target_name)
+        print("[EYAL]: now within to_dataframe, target: ", target)
         if not target:
             raise mlrun.errors.MLRunNotFoundError(
                 "there are no offline targets for this feature set"
             )
+        print("[EYAL]: now within to_dataframe, going to generate results")
         result = target.as_df(
             columns=columns,
             df_module=df_module,

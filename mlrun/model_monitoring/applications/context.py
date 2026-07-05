@@ -234,12 +234,18 @@ class MonitoringApplicationContext:
                     "You can either provide the sample dataframe directly, the model endpoint's details and times, "
                     "or adapt the application's logic to not access the sample dataframe."
                 )
+            print("[EYAL]: going to call to_dataframe()")
+            print("[EYAL]: start_infer_time: ", self.start_infer_time)
+            print("[EYAL]: end_infer_time: ", self.end_infer_time)
+            print("[EYAL]: time_column: ", mm_constants.EventFieldType.TIMESTAMP)
+            print("[EYAL]: storage_options: ", self.storage_options)
             df = self.feature_set.to_dataframe(
                 start_time=self.start_infer_time,
                 end_time=self.end_infer_time,
                 time_column=mm_constants.EventFieldType.TIMESTAMP,
                 storage_options=self.storage_options,
             )
+            print("[EYAL]: to_dataframe() result: ", df.to_dict(orient="records"))
             if df.empty:
                 raise mlrun.errors.MLRunEmptySampleDFError(
                     "The sample dataframe is empty, which may indicate that there are no features logged in the "
