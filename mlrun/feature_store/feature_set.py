@@ -946,6 +946,9 @@ class FeatureSet(ModelObj):
                 raise mlrun.errors.MLRunNotFoundError(
                     "passthrough feature set {self.metadata.name} with no source"
                 )
+            print("[EYAL]: spec source is: ", self.spec.source)
+            if additional_filters:
+                print("[EYAL]: additional_filters is: ", self.additional_filters)
             df = self.spec.source.to_dataframe(
                 columns=columns,
                 start_time=start_time,
@@ -956,6 +959,7 @@ class FeatureSet(ModelObj):
             )
             # to_dataframe() can sometimes return an iterator of dataframes instead of one dataframe
             if not isinstance(df, pd.DataFrame):
+                print("[EYAL]: now within to_dataframe, not a DF: ", type(df))
                 df = pd.concat(df)
             return df
         print("[EYAL]: now within to_dataframe, going to get target")
@@ -970,6 +974,8 @@ class FeatureSet(ModelObj):
         print("[EYAL]: now within to_dataframe, going to generate results, start_time: ", start_time)
         print("[EYAL]: now within to_dataframe, going to generate results, end_time: ", end_time)
         print("[EYAL]: now within to_dataframe, going to generate results, df_module: ", df_module)
+        if additional_filters:
+            print("[EYAL]: now within to_dataframe, going to generate results, additional_filters: ", additional_filters )
         result = target.as_df(
             columns=columns,
             df_module=df_module,
