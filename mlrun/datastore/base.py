@@ -314,7 +314,8 @@ class DataStore(BaseRemoteClient):
         Note that partition_keys cannot be empty.
         """
         logger.debug(f"Starting partition discovery process for {base_url}")
-
+        print("[EYAL]: list partitioned paths, ", f"start_time={start_time}, end_time={end_time}, partition_keys={partition_keys}",
+              f"base_url={base_url}")
         paths = DataStore._list_partitioned_paths(
             base_url,
             start_time,
@@ -322,6 +323,8 @@ class DataStore(BaseRemoteClient):
             partition_keys[-1],
             filesystem,
         )
+
+        print("[EYAL]: list partitioned paths result, ", paths)
 
         dfs = []
         for current_path in paths:
@@ -342,6 +345,7 @@ class DataStore(BaseRemoteClient):
                 )
 
         final_df = pd.concat(dfs) if dfs else pd.DataFrame()
+        print("[EYAL]: concatenated DataFrame, ", f"final_df={final_df}")
         logger.debug(
             "Finished reading partitioned parquet files",
             url=base_url,
