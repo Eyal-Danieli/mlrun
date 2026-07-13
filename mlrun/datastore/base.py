@@ -387,6 +387,7 @@ class DataStore(BaseRemoteClient):
             kwargs["filters"] = filters
 
         def reader(*args, **kwargs):
+            print("[EYAL]: now in reader in datastore")
             if time_column is None and (start_time or end_time):
                 raise mlrun.errors.MLRunInvalidArgumentError(
                     "When providing start_time or end_time, must provide time_column"
@@ -414,6 +415,7 @@ class DataStore(BaseRemoteClient):
                 )
 
                 try:
+                    print("[EYAL]: in reader, optimiz_discovery: ", optimize_discovery)
                     if (
                         optimize_discovery
                         and partitions_time_attributes
